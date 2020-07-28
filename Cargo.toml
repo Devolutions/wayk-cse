@@ -1,6 +1,4 @@
 [workspace]
 members = [
     "wayk-cse-patcher",
-    "rcedit/rcedit-sys",
-    "rcedit"
 ]

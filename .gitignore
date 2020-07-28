@@ -8,3 +8,4 @@ WaykNow.7z
 *.msi
 
 /target/
+Cargo.lock
