@@ -1,0 +1,7 @@
+[build_requires]
+
+[requires]
+lizard/1.0.0-11@devolutions/stable
+
+[generators]
+cmake

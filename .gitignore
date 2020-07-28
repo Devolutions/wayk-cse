@@ -1,0 +1,10 @@
+*.cab
+!*.sln
+!*.vcxproj
+version.rc
+WaykNow.7z
+*.wixobj
+*.wixpdb
+*.msi
+
+/target/
