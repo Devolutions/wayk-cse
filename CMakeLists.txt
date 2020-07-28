@@ -3,16 +3,18 @@ cmake_minimum_required(VERSION 3.0)
 
 project(WaykCse C CXX)
 
-if(NOT DEFINED WAYK_SOURCE_DIR)
-	set(WAYK_SOURCE_DIR "${CMAKE_SOURCE_DIR}/../../../..")
-endif()
+set(WAYK_CSE_LOCAL_LIZARD false CACHE BOOL "Use local lizard distribution under lizard subfolder")
 
-set(CMAKE_MODULE_PATH "${WAYK_SOURCE_DIR}/cmake")
+set(WAYK_CSE_NAME "Wayk Now" CACHE STRING "Wayk CSE application name")
+set(WAYK_CSE_VENDOR "Devolutions Inc." CACHE STRING "Wayk CSE vendor")
+set(WAYK_CSE_COPYRIGHT "Copyright 2020 ${WAYK_CSE_VENDOR} All Rights Reserved." CACHE STRING "Wayk CSE copyright")
+set(WAYK_CSE_VERSION "1.0.0")
+
+set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 include(conan)
 include(WindowsRC)
 include(MSVCRuntime)
-include(WaykVersion)
 
 set(MSVC_RUNTIME "static")
 configure_msvc_runtime()
@@ -41,36 +43,35 @@ if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE "Release")
 endif()
 
-conan_check()
+if (NOT WAYK_CSE_LOCAL_LIZARD)
+	conan_check()
 
-set(CONAN_BUILD_SETTING "never")
+	set(CONAN_BUILD_SETTING "never")
 
-conan_cmake_install(
-    CONANFILE conanfile.txt
-    PROFILE ${CONAN_PROFILE}
-    GENERATORS cmake
-    UPDATE
-    BUILD never
-    SETTINGS "os_build=${CONAN_BUILD_HOST};arch_build=${CONAN_BUILD_ARCH};build_type=${CMAKE_BUILD_TYPE}"
-)
+	conan_cmake_install(
+		CONANFILE conanfile.txt
+		PROFILE ${CONAN_PROFILE}
+		GENERATORS cmake
+		UPDATE
+		BUILD never
+		SETTINGS "os_build=${CONAN_BUILD_HOST};arch_build=${CONAN_BUILD_ARCH};build_type=${CMAKE_BUILD_TYPE}"
+	)
 
-set(CONAN_DISABLE_CHECK_COMPILER ON)
-conan_load_buildinfo()
-conan_basic_setup(TARGETS NO_OUTPUT_DIRS)
-conan_output_dirs_setup()
+	set(CONAN_DISABLE_CHECK_COMPILER ON)
+	conan_load_buildinfo()
+	conan_basic_setup(TARGETS NO_OUTPUT_DIRS)
+	conan_output_dirs_setup()
+else()
+	message(STATUS "Using local lizard distribution")
+endif()
 
 set(MODULE_NAME "WaykCse")
 set(MODULE_PREFIX "WAYK_CSE")
 
 set(OUTPUT_NAME "WaykCse")
 
-if(NOT DEFINED WAYK_NOW_ICON)
-	set(WAYK_NOW_ICON "${WAYK_SOURCE_DIR}/platform/Windows/res/WaykNow.ico")
-endif()
-
-if(NOT DEFINED WAYK_NOW_7ZIP)
-	set(WAYK_NOW_7ZIP "${CMAKE_CURRENT_SOURCE_DIR}/WaykNow.7z")
-endif()
+set(WAYK_NOW_ICON "${CMAKE_CURRENT_SOURCE_DIR}/res/WaykNow.ico")
+set(WAYK_NOW_7ZIP "${CMAKE_CURRENT_SOURCE_DIR}/WaykNow.7z")
 
 message(STATUS "Wayk Now Icon: ${WAYK_NOW_ICON}")
 message(STATUS "Wayk Now 7zip: ${WAYK_NOW_7ZIP}")
@@ -83,11 +84,11 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/res/resource.h.in ${CMAKE_CURRENT_BIN
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/res/resource.rc.in ${CMAKE_CURRENT_BINARY_DIR}/resource.rc @ONLY)
 
 windows_rc_generate_version_info(
-	NAME "${WAYK_NOW_NAME}" TYPE "APP"
-	VERSION "${WAYK_NOW_VERSION}"
+	NAME "${WAYK_CSE_NAME}" TYPE "APP"
+	VERSION "${WAYK_CSE_VERSION}"
 	FILENAME "WaykCse.exe"
-	VENDOR "${WAYK_NOW_VENDOR}"
-	COPYRIGHT "${WAYK_NOW_COPYRIGHT}"
+	VENDOR "${WAYK_CSE_VENDOR}"
+	COPYRIGHT "${WAYK_CSE_COPYRIGHT}"
 	OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/version.rc")
 
 set(${MODULE_PREFIX}_RESOURCES
@@ -97,11 +98,9 @@ set(${MODULE_PREFIX}_RESOURCES
 source_group("Resources" FILES ${${MODULE_PREFIX}_RESOURCES})
 
 set(${MODULE_PREFIX}_LIB_SOURCES
-	src/lizard_ext.c
 	src/cse_utils.c
 	src/bundle.c)
 set(${MODULE_PREFIX}_LIB_HEADERS
-	include/cse/lizard_ext.h
 	include/cse/cse_utils.h
 	include/cse/bundle.h)
 
@@ -116,7 +115,14 @@ add_library(
 	${${MODULE_PREFIX}_RESOURCES}
 	${${MODULE_PREFIX}_LIB_HEADERS})
 
-target_link_libraries(${MODULE_NAME}-lib ${CONAN_TARGETS})
+if (WAYK_CSE_LOCAL_LIZARD)
+	add_subdirectory(lizard)
+	target_link_libraries(${MODULE_NAME}-lib lizard)
+	target_include_directories(${MODULE_NAME}-lib PUBLIC lizard/include)
+else()
+	target_link_libraries(${MODULE_NAME}-lib ${CONAN_TARGETS})
+endif()
+
 target_include_directories(
 	${MODULE_NAME}-lib
 	PUBLIC

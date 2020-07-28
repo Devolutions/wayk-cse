@@ -4,7 +4,6 @@
 
 #include <lizard/lizard.h>
 
-#include <cse/lizard_ext.h>
 #include <cse/cse_utils.h>
 #include <cse/bundle.h>
 #include <resource.h>
@@ -103,7 +102,7 @@ static int StartUnattendedService(
 		goto cleanup;
 	}
 
-	result = _LzIsServiceLaunched("WaykNowService");
+	result = LzIsServiceLaunched("WaykNowService");
 	if (result < 0)
 	{
 		snprintf(
@@ -112,7 +111,7 @@ static int StartUnattendedService(
 			"%s service can't be launched alongside with Wayk Unattended Service",
 			productName);
 
-		_LzMessageBox(NULL,
+		LzMessageBox(NULL,
 					  text,
 					  productName,
 					  MB_OK | MB_ICONERROR
@@ -130,7 +129,7 @@ static int StartUnattendedService(
 	FormatServiceName(serviceName, sizeof(serviceName), productName);
 
 
-	result = _LzInstallService(serviceName, serviceBinary);
+	result = LzInstallService(serviceName, serviceBinary);
 	if (result != LZ_OK)
 		goto cleanup;
 
@@ -138,7 +137,7 @@ static int StartUnattendedService(
 	args[0] = "--wayk-system-path";
 	args[1] = waykSystemFolderPath;
 
-	result = _LzStartService(serviceName, 2, args);
+	result = LzStartService(serviceName, 2, args);
 	if (result != LZ_OK)
 		goto cleanup;
 
@@ -150,9 +149,9 @@ static int StartUnattendedService(
 
 	// Stop service return result is ignored -- we need to remove
 	// service even if stop has been failed (service will be marked for removal)
-	_LzStopService(serviceName);
+	LzStopService(serviceName);
 
-	result = _LzRemoveService(serviceName);
+	result = LzRemoveService(serviceName);
 	if (result != LZ_OK)
 		goto cleanup;
 
@@ -172,7 +171,7 @@ int CseServiceLauncherMain()
 	// args: cse.exe --start-service "Path/To/NowService.exe" "/Path/To/WAYK_NOW_SYSTEM" "productPath"
 	if (__argc <= 4)
 	{
-		_LzMessageBox(NULL,
+		LzMessageBox(NULL,
 					  "Invalid CSE service launcher arguments",
 					  "Custom standalone executable",
 					  MB_OK | MB_ICONERROR
@@ -202,7 +201,7 @@ void StartServiceLauncher(char* extractionPath, char* systemPath, char* productN
 	ZeroMemory(&shellExecuteInfo, sizeof(SHELLEXECUTEINFOA));
 
 	LzEnv_GetCwd(cwd, LZ_MAX_PATH);
-	_LzGetModuleFileName(NULL, csePath, sizeof(csePath));
+	LzGetModuleFileName(NULL, csePath, sizeof(csePath));
 
 	servicePath[0] = '\0';
 	LzPathCchAppend(servicePath, sizeof(servicePath), extractionPath);
@@ -223,9 +222,9 @@ void StartServiceLauncher(char* extractionPath, char* systemPath, char* productN
 	shellExecuteInfo.lpDirectory = cwd;
 	shellExecuteInfo.lpParameters = cseParams;
 
-	if (_LzShellExecuteEx(&shellExecuteInfo) != TRUE)
+	if (LzShellExecuteEx(&shellExecuteInfo) != TRUE)
 	{
-		_LzMessageBox(
+		LzMessageBox(
 			NULL,
 			"Failed to start unattended service. Functionality will be limited.",
 			productName,
@@ -266,7 +265,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, WCHAR* lpCmdLi
 		return CseServiceLauncherMain();
 	}
 
-	wow64 = _LzIsWow64();
+	wow64 = LzIsWow64();
 	waykBinariesBitness = wow64 ? WAYK_BINARIES_BITNESS_X64 : WAYK_BINARIES_BITNESS_X86;
 
 	ZeroMemory(&bundleOptionalContentInfo, sizeof(BundleOptionalContentInfo));
@@ -282,7 +281,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, WCHAR* lpCmdLi
 	{
 		status = LZ_ERROR_MULTIPLE_CSE_INSTANCES;
 		snprintf(text, sizeof(text), "%s application is already launched", productName);
-		_LzMessageBox(NULL, text, productName, MB_OK | MB_ICONERROR);
+		LzMessageBox(NULL, text, productName, MB_OK | MB_ICONERROR);
 		goto cleanup;
 	}
 
@@ -322,7 +321,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, WCHAR* lpCmdLi
 		if (LzMkPath(extractionPath, 0) != LZ_OK)
 		{
 			status = LZ_ERROR_FILE;
-			_LzMessageBox(
+			LzMessageBox(
 				NULL,
 				"Failed to create wayk extraction directory",
 				"Wayk Now",
@@ -331,14 +330,14 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, WCHAR* lpCmdLi
 		}
 	}
 
-	_LzSetEnv("WAYK_DATA_PATH", dataPath);
+	LzSetEnv("WAYK_DATA_PATH", dataPath);
 
 	if (!LzFile_Exists(dataPath))
 	{
 		if (LzMkPath(dataPath, 0) != LZ_OK)
 		{
 			status = LZ_ERROR_FILE;
-			_LzMessageBox(
+			LzMessageBox(
 				NULL,
 				"Failed to create wayk data directory",
 				"Wayk Now",
@@ -347,14 +346,14 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, WCHAR* lpCmdLi
 		}
 	}
 
-	_LzSetEnv("WAYK_SYSTEM_PATH", systemPath);
+	LzSetEnv("WAYK_SYSTEM_PATH", systemPath);
 
 	if (!LzFile_Exists(systemPath))
 	{
 		if (LzMkPath(systemPath, 0) != LZ_OK)
 		{
 			status = LZ_ERROR_FILE;
-			_LzMessageBox(
+			LzMessageBox(
 				NULL,
 				"Failed to create wayk system directory",
 				"Wayk Now",
@@ -371,7 +370,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, WCHAR* lpCmdLi
 
 	if (status != LZ_OK)
 	{
-		_LzMessageBox(
+		LzMessageBox(
 			NULL,
 			"Failed to extract the portable application",
 			productName,
@@ -394,7 +393,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, WCHAR* lpCmdLi
 		status = RunWaykNowInitScript(psModulePath, psInitScriptPath);
 		if (status != LZ_OK)
 		{
-			_LzMessageBox(
+			LzMessageBox(
 				NULL,
 				"Failed to run initialization script",
 				productName,
@@ -409,7 +408,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, WCHAR* lpCmdLi
 	if (enableUnattendedService)
 	{
 		FormatServiceName(serviceName, sizeof(serviceName), productName);
-		_LzSetEnv("WAYK_UNATTENDED_SERVICE_NAME", serviceName);
+		LzSetEnv("WAYK_UNATTENDED_SERVICE_NAME", serviceName);
 
 		StartServiceLauncher(extractionPath, systemPath, productName);
 
@@ -419,7 +418,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, WCHAR* lpCmdLi
 			START_UNATTENDED_SERVICE_TIMEOUT,
 			false) != WAIT_OBJECT_0)
 		{
-			_LzMessageBox(
+			LzMessageBox(
 				NULL,
 				"Failed to start unattended service. Functionality will be limited.",
 				productName,
@@ -430,7 +429,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, WCHAR* lpCmdLi
 
 	LzEnv_SetCwd(extractionPath);
 
-	commandLine = _LzGetCommandLine();
+	commandLine = LzGetCommandLine();
 
 	ZeroMemory(&startupInfo, sizeof(STARTUPINFOA));
 	startupInfo.cb = sizeof(STARTUPINFOA);
@@ -440,7 +439,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, WCHAR* lpCmdLi
 	if (wow64)
 		pfnWow64DisableWow64FsRedirection(&fsRedir);
 
-	if (!_LzCreateProcess(
+	if (!LzCreateProcess(
 		"WaykNow.exe",
 		commandLine,
 		NULL,
@@ -453,7 +452,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, WCHAR* lpCmdLi
 		&processInfo))
 	{
 		status = LZ_ERROR_FAIL;
-		_LzMessageBox(
+		LzMessageBox(
 			NULL,
 			"Wayk Now failed to launch",
 			"Wayk Now",

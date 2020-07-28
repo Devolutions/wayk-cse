@@ -4,7 +4,6 @@
 #include <wchar.h>
 #include <lizard/lizard.h>
 
-#include <cse/lizard_ext.h>
 #include <resource.h>
 
 #define BRANDING_FILE_NAME "branding.zip"

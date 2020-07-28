@@ -8,4 +8,7 @@ WaykNow.7z
 *.msi
 
 /target/
+/lizard/
+/.idea/
+/cmake-build-debug/
 Cargo.lock

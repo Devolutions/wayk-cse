@@ -3,7 +3,6 @@
 #include <windows.h>
 
 #include <lizard/lizard.h>
-#include <cse/lizard_ext.h>
 
 #define MAX_COMMAND_LINE 8192
 
@@ -207,7 +206,7 @@ int RunPowerShellCommand(const char* command)
 
 	startupInfo.cb = sizeof(STARTUPINFOA);
 
-	if (!_LzCreateProcess(
+	if (!LzCreateProcess(
 		NULL,
 		commandLine,
 		NULL,
