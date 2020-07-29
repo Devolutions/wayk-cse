@@ -27,5 +27,5 @@ fn patching_test() {
     let binary_path = copy_test_binary();
     patch(&binary_path);
     let patched_file = File::open(&binary_path).unwrap();
-    assert_eq!(patched_file.metadata().unwrap().len(), 226816);
+    assert_eq!(patched_file.metadata().unwrap().len(), 11264);
 }
