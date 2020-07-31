@@ -220,7 +220,7 @@ cleanup:
 	return status;
 }
 
-WaykCseBundleStatus WaykCseBundle_ExtractPowerShelModule(
+WaykCseBundleStatus WaykCseBundle_ExtractPowerShellModule(
 	WaykCseBundle* ctx,
 	const char* targetFolder)
 {

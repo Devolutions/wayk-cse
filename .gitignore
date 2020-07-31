@@ -11,4 +11,6 @@ WaykNow.7z
 /lizard/
 /.idea/
 /cmake-build-debug/
+
+build/
 Cargo.lock

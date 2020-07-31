@@ -16,6 +16,7 @@ pub enum WaykCseOption {
     WaykSystemPath,
     WaykExtractionPath,
     WaykProductName,
+    EnableWaykAutoClean,
 }
 
 impl WaykCseOption {
@@ -26,6 +27,7 @@ impl WaykCseOption {
             WaykCseOption::WaykSystemPath => 105,
             WaykCseOption::WaykExtractionPath => 106,
             WaykCseOption::WaykProductName => 107,
+            WaykCseOption::EnableWaykAutoClean => 108,
         }
     }
 }

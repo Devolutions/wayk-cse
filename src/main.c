@@ -54,7 +54,7 @@ static int ExtractBundle(
 	// Extract PS module only if configuration with init script is needed
 	if (WaykCseBundle_ExtractPowerShellInitScript(bundle, extractionPath) == WAYK_CSE_BUNDLE_OK)
 	{
-		if (WaykCseBundle_ExtractPowerShelModule(bundle, extractionPath) != WAYK_CSE_BUNDLE_OK)
+		if (WaykCseBundle_ExtractPowerShellModule(bundle, extractionPath) != WAYK_CSE_BUNDLE_OK)
 		{
 			goto cleanup;
 		}
@@ -171,35 +171,85 @@ cleanup:
 	return result;
 }
 
-int CseServiceLauncherMain()
+
+int CleanCseArtifacts(const char* extractionPath, const char* dataPath, const char* systemPath)
 {
-	// args: cse.exe --start-service "Path/To/NowService.exe" "/Path/To/WAYK_NOW_SYSTEM" "productPath"
-	if (__argc <= 4)
+	int result = LZ_OK;
+
+	// Try to continue removal process even if one of remove operations was failed
+
+	if (dataPath != NULL)
 	{
-		LzMessageBox(NULL,
-					  "Invalid CSE service launcher arguments",
-					  "Custom standalone executable",
-					  MB_OK | MB_ICONERROR
-		);
-		return 1;
+		if (RmDirRecursively(dataPath) != LZ_OK)
+			result = LZ_ERROR_FAIL;
 	}
 
-	char unattendedServicePath[LZ_MAX_PATH];
-	char unattendedSystemFolderPath[LZ_MAX_PATH];
-	char productName[LZ_MAX_PATH];
-	LzUnicode_UTF16toUTF8(__wargv[2], -1, (uint8_t*) unattendedServicePath, LZ_MAX_PATH);
-	LzUnicode_UTF16toUTF8(__wargv[3], -1, (uint8_t*) unattendedSystemFolderPath, LZ_MAX_PATH);
-	LzUnicode_UTF16toUTF8(__wargv[4], -1, (uint8_t*) productName, LZ_MAX_PATH);
+	if (systemPath != NULL)
+	{
+		if (RmDirRecursively(systemPath) != LZ_OK)
+			result = LZ_ERROR_FAIL;
+	}
 
-	return StartUnattendedService(unattendedServicePath, unattendedSystemFolderPath,productName);
+	// dataPath and systemPath most likely will be located inside extractionPath, so
+	// we will remove extractionPath last
+	if (extractionPath != NULL)
+	{
+		if (RmDirRecursively(extractionPath) != LZ_OK)
+			result = LZ_ERROR_FAIL;
+	}
+
+	return result;
 }
 
-void StartServiceLauncher(char* extractionPath, char* systemPath, char* productName)
+int CseServiceLauncherMain()
+{
+	int result = LZ_OK;
+	bool enableAutoClean = false;
+
+	char unattendedServicePath[LZ_MAX_PATH];
+
+	char* extractionPath = NULL;
+	char* systemPath = NULL;
+	char* dataPath = NULL;
+	char* enableAutoCleanOpt = NULL;
+	char* productName = NULL;
+
+	extractionPath = GetWaykCsePathOption(IDS_WAYK_EXTRACTION_PATH);
+	systemPath = GetWaykCsePathOption(IDS_WAYK_OPTION_SYSTEM_PATH);
+	dataPath = GetWaykCsePathOption(IDS_WAYK_OPTION_DATA_PATH);
+	productName = GetWaykCseOption(IDS_WAYK_PRODUCT_NAME);
+	enableAutoCleanOpt = GetWaykCseOption(IDS_WAYK_OPTION_AUTO_CLEAN);
+
+	enableAutoClean = (strcmp(enableAutoCleanOpt, "1") == 0);
+
+	unattendedServicePath[0] = '\0';
+	LzPathCchAppend(unattendedServicePath, sizeof(unattendedServicePath), extractionPath);
+	LzPathCchAppend(unattendedServicePath, sizeof(unattendedServicePath), "NowService.exe");
+
+	result = StartUnattendedService(unattendedServicePath, systemPath, productName);
+
+	if (enableAutoClean)
+		CleanCseArtifacts(extractionPath, dataPath, systemPath);
+
+cleanup:
+	if (extractionPath)
+		free(extractionPath);
+	if (systemPath)
+		free(systemPath);
+	if (dataPath)
+		free(dataPath);
+	if (enableAutoCleanOpt)
+		free(enableAutoCleanOpt);
+	if (productName)
+		free(productName);
+
+	return result;
+}
+
+void StartServiceLauncher()
 {
 	char cwd[LZ_MAX_PATH];
 	char csePath[LZ_MAX_PATH];
-	char servicePath[LZ_MAX_PATH];
-	char cseParams[LZ_MAX_PATH];
 
 	SHELLEXECUTEINFOA shellExecuteInfo;
 
@@ -208,31 +258,18 @@ void StartServiceLauncher(char* extractionPath, char* systemPath, char* productN
 	LzEnv_GetCwd(cwd, LZ_MAX_PATH);
 	LzGetModuleFileName(NULL, csePath, sizeof(csePath));
 
-	servicePath[0] = '\0';
-	LzPathCchAppend(servicePath, sizeof(servicePath), extractionPath);
-	LzPathCchAppend(servicePath, sizeof(servicePath), "NowService.exe");
-
-	snprintf(
-		cseParams,
-		sizeof(cseParams),
-		"--start-service \"%s\" \"%s\" \"%s\"",
-		servicePath,
-		systemPath,
-		productName
-	);
-
 	shellExecuteInfo.cbSize = sizeof(SHELLEXECUTEINFOA);
 	shellExecuteInfo.lpVerb = "runas";
 	shellExecuteInfo.lpFile = csePath;
 	shellExecuteInfo.lpDirectory = cwd;
-	shellExecuteInfo.lpParameters = cseParams;
+	shellExecuteInfo.lpParameters = "--cse-start-service";
 
 	if (LzShellExecuteEx(&shellExecuteInfo) != TRUE)
 	{
 		LzMessageBox(
 			NULL,
 			"Failed to start unattended service. Functionality will be limited.",
-			productName,
+			"Remote control service launcher",
 			MB_OK | MB_ICONWARNING
 		);
 	}
@@ -245,6 +282,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, WCHAR* lpCmdLi
 	BOOL wow64;
 	WaykBinariesBitness waykBinariesBitness;
 	bool enableUnattendedService = false;
+	bool enableAutoClean = false;
+	bool unattendedServiceActive = false;
 	BundleOptionalContentInfo bundleOptionalContentInfo;
 	STARTUPINFOA startupInfo;
 	PROCESS_INFORMATION processInfo;
@@ -263,12 +302,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, WCHAR* lpCmdLi
 	HANDLE cseStartedMutex = NULL;
 	HANDLE serviceStartedEvent = NULL;
 	char* enableUnattendedServiceOpt = NULL;
+	char* enableAutoCleanOpt = NULL;
 	char* productName = NULL;
-
-	if ((__argc > 1) && (wcscmp(__wargv[1], L"--start-service") == 0))
-	{
-		return CseServiceLauncherMain();
-	}
 
 	wow64 = LzIsWow64();
 	waykBinariesBitness = wow64 ? WAYK_BINARIES_BITNESS_X64 : WAYK_BINARIES_BITNESS_X86;
@@ -280,6 +315,16 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, WCHAR* lpCmdLi
 	systemPath = GetWaykCsePathOption(IDS_WAYK_OPTION_SYSTEM_PATH);
 	enableUnattendedServiceOpt = GetWaykCseOption(IDS_WAYK_OPTION_UNATTENDED);
 	productName = GetWaykCseOption(IDS_WAYK_PRODUCT_NAME);
+	enableAutoCleanOpt = GetWaykCseOption(IDS_WAYK_OPTION_AUTO_CLEAN);
+
+	if (__argc > 1)
+	{
+		if (wcscmp(__wargv[1], L"--cse-start-service") == 0)
+			return CseServiceLauncherMain();
+		if (wcscmp(__wargv[1], L"--cse-clean-artifacts") == 0)
+			return CleanCseArtifacts(extractionPath, dataPath, systemPath);
+	}
+
 
 	cseStartedMutex = CreateMutexW(NULL, true, CSE_INSTANCE_MUTEX_NAME_W);
 	if (!cseStartedMutex || GetLastError() == ERROR_ALREADY_EXISTS)
@@ -318,8 +363,15 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, WCHAR* lpCmdLi
 		status = LZ_ERROR_NOT_FOUND;
 		goto cleanup;
 	}
+	if (!enableAutoCleanOpt)
+	{
+		status = LZ_ERROR_NOT_FOUND;
+		goto cleanup;
+	}
 
 	enableUnattendedService = (strcmp(enableUnattendedServiceOpt, "1") == 0);
+	enableAutoClean = (strcmp(enableAutoCleanOpt, "1") == 0);
+
 
 	if (!LzFile_Exists(extractionPath))
 	{
@@ -329,7 +381,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, WCHAR* lpCmdLi
 			LzMessageBox(
 				NULL,
 				"Failed to create wayk extraction directory",
-				"Wayk Now",
+				productName,
 				MB_OK | MB_ICONERROR);
 			goto cleanup;
 		}
@@ -345,7 +397,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, WCHAR* lpCmdLi
 			LzMessageBox(
 				NULL,
 				"Failed to create wayk data directory",
-				"Wayk Now",
+				productName,
 				MB_OK | MB_ICONERROR);
 			goto cleanup;
 		}
@@ -361,7 +413,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, WCHAR* lpCmdLi
 			LzMessageBox(
 				NULL,
 				"Failed to create wayk system directory",
-				"Wayk Now",
+				productName,
 				MB_OK | MB_ICONERROR);
 			goto cleanup;
 		}
@@ -430,6 +482,10 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, WCHAR* lpCmdLi
 				MB_OK | MB_ICONERROR
 			);
 		}
+		else
+		{
+			unattendedServiceActive = true;
+		}
 	}
 
 	LzEnv_SetCwd(extractionPath);
@@ -470,7 +526,14 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, WCHAR* lpCmdLi
 
 	WaitForSingleObject(processInfo.hProcess, INFINITE);
 
-	status = 0;
+	if (enableAutoClean && !unattendedServiceActive)
+	{
+		status = CleanCseArtifacts(extractionPath, dataPath, systemPath);
+	}
+	else
+	{
+		status = LZ_OK;
+	}
 
 cleanup:
 	if (processInfo.hThread)
@@ -489,6 +552,8 @@ cleanup:
 		free(systemPath);
 	if (enableUnattendedServiceOpt)
 		free(enableUnattendedServiceOpt);
+	if (enableAutoCleanOpt)
+		free(enableAutoCleanOpt);
 	if (productName)
 		free(productName);
 

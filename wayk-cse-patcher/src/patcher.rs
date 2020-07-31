@@ -120,6 +120,11 @@ impl WaykCsePatcher {
             product_name.as_deref().unwrap_or("Wayk Now"),
         );
 
+        let enable_auto_clean = args.is_present("ENABLE_AUTO_CLEAN");
+
+        let auto_clean_option_value = if enable_auto_clean { "1" } else { "0" };
+        patcher.set_wayk_cse_option(WaykCseOption::EnableWaykAutoClean, auto_clean_option_value);
+
         let enable_unattended = args.is_present("WITH_UNATTENDED");
 
         let unattended_option_value = if enable_unattended { "1" } else { "0" };
@@ -259,6 +264,11 @@ impl WaykCsePatcher {
                     .long("wayk-ps-version")
                     .help("Set Wayk PowerShell module version")
                     .takes_value(true),
+            )
+            .arg(
+                Arg::with_name("ENABLE_AUTO_CLEAN")
+                    .long("enable-auto-clean")
+                    .help("Enable auto-clean for CSE. Removes extraction/data/system folders after cse exits"),
             )
             .get_matches()
     }

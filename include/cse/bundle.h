@@ -29,7 +29,7 @@ WaykCseBundleStatus WaykCseBundle_ExtractBrandingZip(
 WaykCseBundleStatus WaykCseBundle_ExtractPowerShellInitScript(
 	WaykCseBundle* ctx,
 	const char* targetFolder);
-WaykCseBundleStatus WaykCseBundle_ExtractPowerShelModule(
+WaykCseBundleStatus WaykCseBundle_ExtractPowerShellModule(
 	WaykCseBundle* ctx,
 	const char* targetFolder);
 WaykCseBundleStatus WaykCseBundle_ExtractWaykBinaries(

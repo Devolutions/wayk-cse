@@ -6,6 +6,13 @@
 
 #define MAX_COMMAND_LINE 8192
 
+typedef enum
+{
+	COMMAND_INTERPRETER_CMD = 0,
+	COMMAND_INTERPRETER_POWER_SHELL = 1,
+} CommandInterpreter;
+
+
 char* ExpandEnvironmentVariables(const char* input)
 {
 	char* result = 0;
@@ -99,11 +106,11 @@ char* ExpandEnvironmentVariables(const char* input)
 			++input;
 		}
 	}
-
+	buffer[currentUsedBufferSize] = '\0';
 	result = buffer;
 	buffer = 0;
 
-	cleanup:
+cleanup:
 	if (buffer)
 		free(buffer);
 	if (variableName)
@@ -149,7 +156,7 @@ char* GetWaykCsePathOption(int key)
 
 	expandedPath = ExpandEnvironmentVariables(originalOption);
 
-	cleanup:
+cleanup:
 	if (originalOption)
 		free(originalOption);
 
@@ -171,13 +178,28 @@ int GetPowerShellPath(char* pathBuffer, int pathBufferSize)
 	);
 }
 
-int RunPowerShellCommand(const char* command)
+int GetCmdPath(char* pathBuffer, int pathBufferSize)
+{
+	int result;
+
+	result = LzEnv_GetEnv("SYSTEMROOT", pathBuffer, pathBufferSize);
+	if (result < 0)
+		return LZ_ERROR_FAIL;
+
+	return LzPathCchAppend(
+		pathBuffer,
+		pathBufferSize,
+		"System32\\cmd.exe"
+	);
+}
+
+static int RunCommandInterpreterCommand(CommandInterpreter interpreter, const char* command)
 {
 	int result;
 	int bytesWritten;
 	DWORD exitCode;
 
-	char powerShellPath[LZ_MAX_PATH];
+	char commandInterpreterPath[LZ_MAX_PATH];
 	char commandLine[MAX_COMMAND_LINE];
 
 	STARTUPINFOA startupInfo;
@@ -186,17 +208,37 @@ int RunPowerShellCommand(const char* command)
 	ZeroMemory(&startupInfo, sizeof(STARTUPINFOA));
 	ZeroMemory(&processInfo, sizeof(PROCESS_INFORMATION));
 
-	result = GetPowerShellPath(powerShellPath, sizeof(powerShellPath));
-	if (result != LZ_OK)
+	if (interpreter == COMMAND_INTERPRETER_CMD)
+	{
+		result = GetCmdPath(commandInterpreterPath, sizeof(commandInterpreterPath));
+		if (result != LZ_OK)
+			goto cleanup;
+		bytesWritten = snprintf(
+			commandLine,
+			sizeof(commandLine),
+			"\"%s\" /C %s",
+			commandInterpreterPath,
+			command
+		);
+	}
+	else if (interpreter == COMMAND_INTERPRETER_POWER_SHELL)
+	{
+		result = GetPowerShellPath(commandInterpreterPath, sizeof(commandInterpreterPath));
+		if (result != LZ_OK)
+			goto cleanup;
+		bytesWritten = snprintf(
+			commandLine,
+			sizeof(commandLine),
+			"\"%s\" -WindowStyle Hidden -ExecutionPolicy Bypass -NoLogo -Command \"%s\"",
+			commandInterpreterPath,
+			command
+		);
+	}
+	else
+	{
+		result = LZ_ERROR_PARAM;
 		goto cleanup;
-
-	bytesWritten = snprintf(
-		commandLine,
-		sizeof(commandLine),
-		"\"%s\" -WindowStyle Hidden -ExecutionPolicy Bypass -NoLogo -Command \"%s\"",
-		powerShellPath,
-		command
-	);
+	}
 
 	if (bytesWritten < 0 || bytesWritten >= sizeof(commandLine))
 	{
@@ -241,6 +283,16 @@ cleanup:
 	return result;
 }
 
+int RunCmdCommand(const char* command)
+{
+	return RunCommandInterpreterCommand(COMMAND_INTERPRETER_CMD, command);
+}
+
+int RunPowerShellCommand(const char* command)
+{
+	return RunCommandInterpreterCommand(COMMAND_INTERPRETER_POWER_SHELL, command);
+}
+
 int RunWaykNowInitScript(const char* waykModulePath, const char* initScriptPath)
 {
 	int result;
@@ -263,6 +315,32 @@ int RunWaykNowInitScript(const char* waykModulePath, const char* initScriptPath)
 	}
 
 	return RunPowerShellCommand(powerShellCommand);
+
+cleanup:
+	return result;
+}
+
+int RmDirRecursively(const char* path)
+{
+	int result;
+	int bytesWritten;
+
+	char command[LZ_MAX_PATH];
+
+	bytesWritten = snprintf(
+		command,
+		sizeof(command),
+		"rmdir /S /Q \"%s\"",
+		path
+	);
+
+	if (bytesWritten < 0 || bytesWritten >= sizeof(command))
+	{
+		result = LZ_ERROR_PARAM;
+		goto cleanup;
+	}
+
+	return RunCmdCommand(command);
 
 cleanup:
 	return result;
