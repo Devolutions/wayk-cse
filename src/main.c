@@ -103,7 +103,11 @@ static int StartUnattendedService(
 	}
 
 	result = LzIsServiceLaunched("WaykNowService");
-	if (result < 0)
+	if (result == FALSE || result == LZ_ERROR_OPEN_SERVICE)
+	{
+		result = LZ_OK;
+	}
+	else if (result == TRUE)
 	{
 		snprintf(
 			text,
@@ -112,16 +116,17 @@ static int StartUnattendedService(
 			productName);
 
 		LzMessageBox(NULL,
-					  text,
-					  productName,
-					  MB_OK | MB_ICONERROR
+					 text,
+					 productName,
+					 MB_OK | MB_ICONERROR
 		);
+
+		result = LZ_ERROR_CONFLICTING_SERVICE;
 		goto cleanup;
 	}
-
-	else if (result == TRUE)
+	else
 	{
-		result = LZ_ERROR_CONFLICTING_SERVICE;
+		// Keep LzIsServiceLaunched returned error in result
 		goto cleanup;
 	}
 
