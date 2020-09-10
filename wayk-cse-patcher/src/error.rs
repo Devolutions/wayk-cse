@@ -19,6 +19,8 @@ pub enum WaykCseError {
     BundleGenerationFailed(String),
     #[error("Failed to download package: {0}")]
     DownloadFailed(String),
+    #[error("Artifacts bundle processing failed: {0}")]
+    ArtifactsBundleError(String),
     #[error("Error: {0}")]
     Other(String),
 }
