@@ -17,6 +17,10 @@ pub enum WaykCseError {
     SigningFailed(String),
     #[error("Failed to generate bundle archive: {0}")]
     BundleGenerationFailed(String),
+    #[error("Failed to download package: {0}")]
+    DownloadFailed(String),
+    #[error("Error: {0}")]
+    Other(String),
 }
 
 /// Handy alias for Result with WaykCseError as error type
