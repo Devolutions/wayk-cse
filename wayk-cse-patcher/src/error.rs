@@ -21,8 +21,11 @@ pub enum WaykCseError {
     DownloadFailed(String),
     #[error("Artifacts bundle processing failed: {0}")]
     ArtifactsBundleError(String),
+    #[error("Cse options parsing failed: {0}")]
+    CseOptionsParsingFailed(String),
     #[error("Error: {0}")]
     Other(String),
+
 }
 
 /// Handy alias for Result with WaykCseError as error type
