@@ -4,13 +4,18 @@ version = "0.1.0"
 authors = ["Vladislav Nikonov <nikonov.vladislav@apriorit.com>"]
 edition = "2018"
 description = "WaykNow custom standalone executable (CSE) patcher"
+build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[build-dependencies]
+cmake = "0.1"
 
 [dependencies]
 rcedit = { git = "https://github.com/Devolutions/rcedit-rs", rev = "fe2a4a4" }
 
 thiserror = "1.0"
+anyhow = "1.0"
 zip = "0.5"
 json = "0.12"
 tempfile = "3.1"

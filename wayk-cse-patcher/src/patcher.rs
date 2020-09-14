@@ -9,11 +9,11 @@ use clap::{App as ArgParser, Arg, ArgMatches};
 use log::{info, warn};
 
 use tempfile::tempdir;
+use anyhow::Context;
 
 use crate::{
     branding::{extract_branding_icon, get_product_name},
     bundle::{Bitness, BundlePackageType, BundlePacker},
-    error::{WaykCseError, WaykCseResult},
     resource_patcher::ResourcePatcher,
     signing::sign_executable,
 };
@@ -25,14 +25,15 @@ impl WaykCsePatcher {
         WaykCsePatcher
     }
 
-    pub fn run(self) -> WaykCseResult<()> {
-        /*
+    pub fn run(self) -> anyhow::Result<()> {
+
         let args = Self::parse_arguments();
 
-        let working_dir =
-            tempdir().map_err(|e| WaykCseError::PatchingError(format!("Can't create working directory -> {0}", e)))?;
-
+        let working_dir = tempdir().context("Failed to create temp workind directory");
         let output_path = args.value_of("OUTPUT").unwrap();
+
+        let wayk_cse_binary = include_bytes!(env!("WAYK_CSE_PATH"));
+    /*
 
         let wayk_cse_dummy_path = match args.value_of("WAYK_CSE_DUMMY_PATH") {
             Some(path) => Path::new(path).into(),
@@ -171,8 +172,9 @@ impl WaykCsePatcher {
         Ok(())
     }
 
-    pub fn create_dir(path: &Path) -> WaykCseResult<()> {
-        fs::create_dir(path).map_err(|e| WaykCseError::PatchingError(format!("Failed to create directory: -> {0}", e)))
+    pub fn create_dir(path: &Path) -> anyhow::Result<()> {
+        fs::create_dir(path)
+            .with_context(|| format!("Failed to create directory {}", path.display()))
     }
 
     fn parse_arguments() -> ArgMatches<'static> {
@@ -189,86 +191,12 @@ impl WaykCsePatcher {
                     .required(true),
             )
             .arg(
-                Arg::with_name("WAYK_CSE_DUMMY_PATH")
-                    .long("wayk-cse-dummy-path")
-                    .help(
-                        "Set custom WaykCseDummy path; Defaults to 'WaykCseDummy.exe \
-                       near the current executable'",
-                    )
-                    .takes_value(true),
-            )
-            .arg(
-                Arg::with_name("WITH_UNATTENDED")
-                    .long("with-unattended")
-                    .help("Enable unattended service support"),
-            )
-            .arg(
-                Arg::with_name("WAYK_EXTRACTION_PATH")
-                    .long("wayk-extraction-path")
-                    .help(
-                        "Set target output application path; Could contain environment variables \
-                       in form ${APPDATA}; e.g.: ${APPDATA}/MyApp; Defaults to ${TEMP}/WaykNowCse",
-                    )
-                    .takes_value(true),
-            )
-            .arg(
-                Arg::with_name("WAYK_DATA_PATH")
-                    .long("wayk-data-path")
-                    .help("Set WAYK_DATA_PATH variable; Defaults to ${TEMP}/WaykNowCse/data")
-                    .takes_value(true),
-            )
-            .arg(
-                Arg::with_name("WAYK_SYSTEM_PATH")
-                    .long("wayk-system-path")
-                    .help("Set WAYK_SYSTEM_PATH variable; Defaults to ${TEMP}/WaykNowCse/system")
-                    .takes_value(true),
-            )
-            .arg(
-                Arg::with_name("INIT_SCRIPT_PATH")
-                    .long("init-script")
-                    .help("Set initialization script path (PowerShell)")
-                    .takes_value(true),
-            )
-            .arg(
-                Arg::with_name("WAYK_BIN_X64_PATH")
-                    .long("wayk-bin-x64")
-                    .help("Add wayk x64 version zip archive")
-                    .takes_value(true),
-            )
-            .arg(
-                Arg::with_name("WAYK_BIN_X86_PATH")
-                    .long("wayk-bin-x86")
-                    .help("Add wayk x86 version zip archive")
-                    .takes_value(true),
-            )
-            .arg(
-                Arg::with_name("WITH_BRANDING_PATH")
-                    .long("with-branding")
-                    .help("Set branding archive")
-                    .takes_value(true),
-            )
-            .arg(
-                Arg::with_name("ENABLE_SIGNING")
-                    .long("enable-signing")
-                    .help("Enable output binary singing")
-                    .requires("SIGNING_CERT_NAME"),
-            )
-            .arg(
-                Arg::with_name("SIGNING_CERT_NAME")
-                    .long("signing-cert-name")
-                    .help("Set signing certificate name")
-                    .takes_value(true),
-            )
-            .arg(
-                Arg::with_name("WAYK_PS_VERSION")
-                    .long("wayk-ps-version")
-                    .help("Set Wayk PowerShell module version")
-                    .takes_value(true),
-            )
-            .arg(
-                Arg::with_name("ENABLE_AUTO_CLEAN")
-                    .long("enable-auto-clean")
-                    .help("Enable auto-clean for CSE. Removes extraction/data/system folders after cse exits"),
+                Arg::with_name("CONFIG")
+                    .short("-c")
+                    .long("config")
+                    .help("Set CSE configuration JSON file")
+                    .takes_value(true)
+                    .required(true),
             )
             .get_matches()
     }
