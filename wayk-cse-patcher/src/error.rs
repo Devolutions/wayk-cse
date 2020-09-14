@@ -1,5 +1,11 @@
 use thiserror::Error;
 
+use crate::{
+    artifacts_bundle,
+    bundle,
+    cse_options,
+};
+
 /// Main WaykCse patcher error type
 #[derive(Error, Debug)]
 pub enum WaykCseError {
@@ -19,10 +25,14 @@ pub enum WaykCseError {
     BundleGenerationFailed(String),
     #[error("Failed to download package: {0}")]
     DownloadFailed(String),
-    #[error("Artifacts bundle processing failed: {0}")]
-    ArtifactsBundleError(String),
     #[error("Cse options parsing failed: {0}")]
     CseOptionsParsingFailed(String),
+    #[error("Artifacts bundle processing failed: {0}")]
+    ArtifactsBundleError(#[from] artifacts_bundle::Error),
+    #[error("Bundle packing failed: {0}")]
+    BundlePackerError(#[from] bundle::Error),
+    #[error("Cse options error: {0}")]
+    CseOptionsError(#[from] cse_options::CseOptionsError),
     #[error("Error: {0}")]
     Other(String),
 

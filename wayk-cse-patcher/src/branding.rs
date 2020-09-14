@@ -5,6 +5,8 @@ use zip::ZipArchive;
 use crate::error::{WaykCseError, WaykCseResult};
 use json::JsonValue;
 
+// TODO: improve error handling
+
 /// Extracts app icon from the branding zip archive
 pub fn extract_branding_icon(branding_path: &Path) -> WaykCseResult<Vec<u8>> {
     let file = File::open(branding_path)

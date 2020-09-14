@@ -163,7 +163,7 @@ mod tests {
     
     #[test]
     fn options_processing() {
-        let mut options = CseOptions::load(Path::new("tests/data/options.json"))
+        let options = CseOptions::load(Path::new("tests/data/options.json"))
             .unwrap();
 
         let actual_file = tempfile::NamedTempFile::new().unwrap();

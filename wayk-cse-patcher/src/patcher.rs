@@ -14,8 +14,7 @@ use crate::{
     branding::{extract_branding_icon, get_product_name},
     bundle::{Bitness, BundlePackageType, BundlePacker},
     error::{WaykCseError, WaykCseResult},
-    powershell::download_module,
-    resource_patcher::{ResourcePatcher, WaykCseOption},
+    resource_patcher::ResourcePatcher,
     signing::sign_executable,
 };
 
@@ -27,6 +26,7 @@ impl WaykCsePatcher {
     }
 
     pub fn run(self) -> WaykCseResult<()> {
+        /*
         let args = Self::parse_arguments();
 
         let working_dir =
@@ -167,7 +167,7 @@ impl WaykCsePatcher {
         }
 
         info!("Wayk CSE build successful!");
-
+*/
         Ok(())
     }
 
