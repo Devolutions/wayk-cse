@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     path::{Path, PathBuf},
 };
 
@@ -58,18 +57,22 @@ impl ResourcePatcher {
         self
     }
 
-
     pub fn patch(&mut self) -> ResourcePathcerResult<()> {
         if self.original_binary_path.is_none() {
-            return Err(Error::ExecutableLoadFailed("original binary path is not set".to_string()));
+            return Err(Error::ExecutableLoadFailed(
+                "original binary path is not set".to_string(),
+            ));
         }
 
-        self.resource_updater.load(&self.original_binary_path.as_ref().unwrap()).map_err(|e| {
-            Error::ExecutableLoadFailed(format!("{}", e))
-        })?;
+        self.resource_updater
+            .load(&self.original_binary_path.as_ref().unwrap())
+            .map_err(|e| Error::ExecutableLoadFailed(format!("{}", e)))?;
 
         if let Some(icon_path) = self.icon_path.as_ref() {
-            check_rcedit(self.resource_updater.set_icon(icon_path), "Icon patching failed")?;
+            check_rcedit(
+                self.resource_updater.set_icon(icon_path),
+                "Icon patching failed",
+            )?;
         }
 
         if let Some(wayk_bundle_path) = self.wayk_bundle_path.as_ref() {
@@ -82,12 +85,16 @@ impl ResourcePatcher {
 
         if let Some(product_name) = self.product_name.as_ref() {
             check_rcedit(
-                self.resource_updater.set_string(PRODUCT_NAME_RESOURCE_ID, product_name),
+                self.resource_updater
+                    .set_string(PRODUCT_NAME_RESOURCE_ID, product_name),
                 "Failed to patch product name",
             )?;
         }
 
-        check_rcedit(self.resource_updater.commit(), "Failed to commit patched binary")?;
+        check_rcedit(
+            self.resource_updater.commit(),
+            "Failed to commit patched binary",
+        )?;
 
         Ok(())
     }

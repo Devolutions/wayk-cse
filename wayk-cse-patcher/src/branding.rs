@@ -1,16 +1,12 @@
 use std::{
     fs::File,
-    io::{
-        self,
-        Read
-    },
-    path::Path
+    io::{self, Read},
+    path::Path,
 };
 
-use zip::ZipArchive;
 use json::JsonValue;
 use thiserror::Error;
-
+use zip::ZipArchive;
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -21,7 +17,7 @@ pub enum Error {
     #[error("manifest.json is missing")]
     MissingManifest,
     #[error("Invalid manifest ({0})")]
-    InvalidManifest(String)
+    InvalidManifest(String),
 }
 
 pub type BrandingResult<T> = Result<T, Error>;
@@ -35,8 +31,7 @@ pub fn extract_branding_icon(branding_path: &Path) -> BrandingResult<Vec<u8>> {
     let mut compressed_icon = archive.by_name(&icon_name)?;
 
     let mut icon_bytes = Vec::new();
-    compressed_icon
-        .read_to_end(&mut icon_bytes)?;
+    compressed_icon.read_to_end(&mut icon_bytes)?;
 
     Ok(icon_bytes)
 }

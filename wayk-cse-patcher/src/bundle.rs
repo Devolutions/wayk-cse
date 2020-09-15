@@ -1,19 +1,17 @@
 use std::{
     fmt::{Display, Formatter, Result as FmtResult},
-    fs::{self, create_dir_all, File},
+    fs::{self, File},
+    io,
     path::{Path, PathBuf},
     process::Command,
-    io,
 };
+
 
 use tempfile::Builder as TempFileBuilder;
-use fs_extra::dir::CopyOptions as DirCopyOptions;
-use zip::ZipArchive;
 use thiserror::Error;
 
-use crate::{
-    artifacts_bundle::{self, ArtifactsBundle},
-};
+
+use crate::artifacts_bundle::{self, ArtifactsBundle};
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub enum Bitness {
@@ -39,7 +37,7 @@ pub enum Error {
     #[error("Artifacts bundle processing failed ({0})")]
     ArtifactsBundleFailed(#[from] artifacts_bundle::Error),
     #[error("Failed to compress bunlde via 7z ({0})")]
-    ArchiverFailure(String)
+    ArchiverFailure(String),
 }
 
 type BundlePackerResult<T> = Result<T, Error>;
@@ -58,7 +56,9 @@ pub struct BundlePacker {
 
 impl BundlePacker {
     pub fn new() -> Self {
-        Self { packages: Vec::new() }
+        Self {
+            packages: Vec::new(),
+        }
     }
 
     pub fn add_bundle_package(&mut self, package_type: BundlePackageType, path: &Path) {
@@ -81,8 +81,12 @@ impl BundlePacker {
                     artifacts.extract_wayk_now_binary(&mut file)?;
                 }
                 BundlePackageType::InstallationMsi { bitness } => {
-                    fs::copy(package_path, bundle_directory.path()
-                        .join(format!("Installer_{}.msi", bitness)))?;
+                    fs::copy(
+                        package_path,
+                        bundle_directory
+                            .path()
+                            .join(format!("Installer_{}.msi", bitness)),
+                    )?;
                 }
                 BundlePackageType::BrandingZip => {
                     fs::copy(package_path, bundle_directory.path().join("branding.zip"))?;
@@ -123,7 +127,10 @@ fn compress_bundle(unpacked_bundle_path: &Path, output_path: &Path) -> BundlePac
 
     if !archiver_output.status.success() {
         let stderr = std::str::from_utf8(&archiver_output.stderr).unwrap_or("<INVALID STDERR>");
-        return Err(Error::ArchiverFailure(format!("7z packing failed: -> {}", stderr)));
+        return Err(Error::ArchiverFailure(format!(
+            "7z packing failed: -> {}",
+            stderr
+        )));
     }
     Ok(())
 }
@@ -131,9 +138,9 @@ fn compress_bundle(unpacked_bundle_path: &Path, output_path: &Path) -> BundlePac
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs::read_dir;
+    
 
-    use tempfile::tempdir;
+    
 
     #[test]
     fn test_bundle_packing() {
@@ -151,7 +158,7 @@ mod tests {
         let mut packer = BundlePacker::new();
         packer.add_bundle_package(
             BundlePackageType::BrandingZip,
-            Path::new("tests/data/branding.zip")
+            Path::new("tests/data/branding.zip"),
         );
         packer.add_bundle_package(
             BundlePackageType::CustomInitializationScript,
@@ -171,15 +178,19 @@ mod tests {
         );
         packer.add_bundle_package(
             BundlePackageType::CseOptions,
-            Path::new("tests/data/options.json")
+            Path::new("tests/data/options.json"),
         );
         packer.add_bundle_package(
-            BundlePackageType::InstallationMsi { bitness: Bitness::X86 },
-            Path::new("tests/data/fake_installer.msi")
+            BundlePackageType::InstallationMsi {
+                bitness: Bitness::X86,
+            },
+            Path::new("tests/data/fake_installer.msi"),
         );
         packer.add_bundle_package(
-            BundlePackageType::InstallationMsi { bitness: Bitness::X64 },
-            Path::new("tests/data/fake_installer.msi")
+            BundlePackageType::InstallationMsi {
+                bitness: Bitness::X64,
+            },
+            Path::new("tests/data/fake_installer.msi"),
         );
 
         packer.pack(&temp_path).unwrap();

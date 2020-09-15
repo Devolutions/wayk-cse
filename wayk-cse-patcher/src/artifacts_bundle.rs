@@ -1,15 +1,11 @@
 use std::{
     fs::File,
-    path::Path,
     io::{self, Write},
+    path::Path,
 };
 
-use zip::{
-    ZipArchive,
-    result::ZipError
-};
 use thiserror::Error;
-
+use zip::{result::ZipError, ZipArchive};
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -23,7 +19,6 @@ pub enum Error {
 
 pub type ArtifactsBundleResult<T> = Result<T, Error>;
 
-
 pub struct ArtifactsBundle {
     archive: ZipArchive<File>,
 }
@@ -35,12 +30,16 @@ impl ArtifactsBundle {
         Ok(Self { archive })
     }
 
-    pub fn extract_wayk_now_binary<W: Write>(&mut self, writer: &mut W) -> ArtifactsBundleResult<u64> {
+    pub fn extract_wayk_now_binary<W: Write>(
+        &mut self,
+        writer: &mut W,
+    ) -> ArtifactsBundleResult<u64> {
         const WAYK_NOW_FILE_NAME: &str = "WaykNow.exe";
 
-        let mut compressed = self.archive.by_name(WAYK_NOW_FILE_NAME).map_err(|_| {
-            Error::MissingFile(WAYK_NOW_FILE_NAME.to_string())
-        })?;
+        let mut compressed = self
+            .archive
+            .by_name(WAYK_NOW_FILE_NAME)
+            .map_err(|_| Error::MissingFile(WAYK_NOW_FILE_NAME.to_string()))?;
 
         Ok(io::copy(&mut compressed, writer)?)
     }
@@ -49,7 +48,7 @@ impl ArtifactsBundle {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::{Seek, SeekFrom, Read};
+    use std::io::{Read, Seek, SeekFrom};
 
     use tempfile::tempfile;
 
@@ -57,9 +56,8 @@ mod tests {
     fn wayk_binary_extracts_successfully() {
         let mut file = tempfile().unwrap();
 
-        let mut bundle = ArtifactsBundle::open(
-            Path::new("tests/data/wayk_now_mock_binaries.zip")
-        ).unwrap();
+        let mut bundle =
+            ArtifactsBundle::open(Path::new("tests/data/wayk_now_mock_binaries.zip")).unwrap();
 
         let size = bundle.extract_wayk_now_binary(&mut file).unwrap();
 

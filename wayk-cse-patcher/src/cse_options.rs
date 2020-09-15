@@ -1,17 +1,14 @@
 use std::{
-    path::Path,
     fs::{read_to_string, File},
-    io
+    io,
+    path::Path,
 };
 
 use json::JsonValue;
 use thiserror::Error;
 
-use crate::{
-    bundle::Bitness,
-};
+use crate::bundle::Bitness;
 use std::io::Write;
-
 
 #[derive(Error, Debug)]
 pub enum CseOptionsError {
@@ -20,7 +17,7 @@ pub enum CseOptionsError {
     #[error("Encountered IO error ({0})")]
     IoError(io::Error),
     #[error("Invalid JSON value '{value}' for key '{key}'")]
-    InvalidValue { key: String, value: String }
+    InvalidValue { key: String, value: String },
 }
 
 impl From<json::Error> for CseOptionsError {
@@ -36,7 +33,6 @@ impl From<io::Error> for CseOptionsError {
 }
 
 type CseOptionsResult<T> = Result<T, CseOptionsError>;
-
 
 #[derive(Default)]
 pub struct BrandingOptions {
@@ -59,7 +55,6 @@ pub struct InstallOptions {
     pub embed_msi: Option<bool>,
     pub supported_architectures: Vec<Bitness>,
 }
-
 
 pub struct CseOptions {
     json_data: JsonValue,
@@ -87,8 +82,12 @@ impl CseOptions {
         if let Some(script_path) = json_data["postInstallScript"]["path"].as_str() {
             post_install_script_options.path.replace(script_path.into());
         }
-        if let JsonValue::Boolean(ref import_wayk_now_module) = json_data["postInstallScript"]["importWaykNowModule"] {
-            post_install_script_options.import_wayk_now_module.replace(*import_wayk_now_module);
+        if let JsonValue::Boolean(ref import_wayk_now_module) =
+            json_data["postInstallScript"]["importWaykNowModule"]
+        {
+            post_install_script_options
+                .import_wayk_now_module
+                .replace(*import_wayk_now_module);
         }
 
         let mut install_options = InstallOptions::default();
@@ -103,9 +102,9 @@ impl CseOptions {
                 value => {
                     return Err(CseOptionsError::InvalidValue {
                         key: "install.architecture".to_string(),
-                        value: value.to_string()
+                        value: value.to_string(),
                     });
-                },
+                }
             };
         }
 
@@ -119,7 +118,7 @@ impl CseOptions {
             branding_options,
             signing_options,
             post_install_script_options,
-            install_options
+            install_options,
         })
     }
 
@@ -128,7 +127,7 @@ impl CseOptions {
         Self::load_from_str(&json_str)
     }
 
-        pub fn save_finalized_options(&self, path: &Path) -> CseOptionsResult<()> {
+    pub fn save_finalized_options(&self, path: &Path) -> CseOptionsResult<()> {
         let mut opts = self.json_data.clone();
 
         // Remove development environment info (e.g local paths, signing data)
@@ -168,16 +167,14 @@ impl CseOptions {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::fs;
-    
+
     #[test]
     fn options_processing() {
-        let options = CseOptions::load(Path::new("tests/data/options.json"))
-            .unwrap();
+        let options = CseOptions::load(Path::new("tests/data/options.json")).unwrap();
 
         let actual_file = tempfile::NamedTempFile::new().unwrap();
 
@@ -191,67 +188,88 @@ mod tests {
 
     #[test]
     fn options_parsing_all() {
-        let options = CseOptions::load(Path::new("tests/data/options.json"))
-            .unwrap();
+        let options = CseOptions::load(Path::new("tests/data/options.json")).unwrap();
 
         let expected_branding_path = Some("branding.zip".to_string());
-        assert_eq!(options.branding_options().path.as_ref(), expected_branding_path.as_ref());
+        assert_eq!(
+            options.branding_options().path.as_ref(),
+            expected_branding_path.as_ref()
+        );
 
         let expected_signing_cert = Some("myCert".to_string());
-        assert_eq!(options.signing_options().cert_name.as_ref(), expected_signing_cert.as_ref());
+        assert_eq!(
+            options.signing_options().cert_name.as_ref(),
+            expected_signing_cert.as_ref()
+        );
 
         let expected_script_path = Some("script.ps1".to_string());
-        assert_eq!(options.post_install_script_options().path.as_ref(), expected_script_path.as_ref());
+        assert_eq!(
+            options.post_install_script_options().path.as_ref(),
+            expected_script_path.as_ref()
+        );
 
         let expected_import_wayk_now_module = Some(true);
         assert_eq!(
-            options.post_install_script_options().import_wayk_now_module.as_ref(),
+            options
+                .post_install_script_options()
+                .import_wayk_now_module
+                .as_ref(),
             expected_import_wayk_now_module.as_ref()
         );
 
         let expected_embed_msi = Some(true);
-        assert_eq!(options.install_options().embed_msi.as_ref(), expected_embed_msi.as_ref());
+        assert_eq!(
+            options.install_options().embed_msi.as_ref(),
+            expected_embed_msi.as_ref()
+        );
 
         let expected_supported_architectures = vec![Bitness::X86, Bitness::X64];
-        assert_eq!(options.install_options().supported_architectures, expected_supported_architectures);
+        assert_eq!(
+            options.install_options().supported_architectures,
+            expected_supported_architectures
+        );
     }
 
     #[test]
     fn install_architecture_x86() {
-        let options = CseOptions::load_from_str(
-            "{\"install\":{\"architecture\": \"x86\"}}"
-        ).unwrap();
+        let options =
+            CseOptions::load_from_str("{\"install\":{\"architecture\": \"x86\"}}").unwrap();
         assert_eq!(options.install_options().supported_architectures.len(), 1);
-        assert_eq!(options.install_options().supported_architectures[0], Bitness::X86);
+        assert_eq!(
+            options.install_options().supported_architectures[0],
+            Bitness::X86
+        );
     }
 
     #[test]
     fn install_architecture_x64() {
-        let options = CseOptions::load_from_str(
-            "{\"install\":{\"architecture\": \"x64\"}}"
-        ).unwrap();
+        let options =
+            CseOptions::load_from_str("{\"install\":{\"architecture\": \"x64\"}}").unwrap();
         assert_eq!(options.install_options().supported_architectures.len(), 1);
-        assert_eq!(options.install_options().supported_architectures[0], Bitness::X64);
+        assert_eq!(
+            options.install_options().supported_architectures[0],
+            Bitness::X64
+        );
     }
 
     #[test]
     fn install_architecture_invalid() {
-        let options_result = CseOptions::load_from_str(
-            "{\"install\":{\"architecture\": \"sdsdfsa\"}}"
-        );
+        let options_result =
+            CseOptions::load_from_str("{\"install\":{\"architecture\": \"sdsdfsa\"}}");
         assert!(options_result.is_err());
     }
 
-
     #[test]
     fn options_processing_empty() {
-        let options = CseOptions::load(Path::new("tests/data/options_empty.json"))
-            .unwrap();
+        let options = CseOptions::load(Path::new("tests/data/options_empty.json")).unwrap();
 
         assert!(options.branding_options().path.is_none());
         assert!(options.signing_options().cert_name.is_none());
         assert!(options.post_install_script_options().path.is_none());
-        assert!(options.post_install_script_options().import_wayk_now_module.is_none());
+        assert!(options
+            .post_install_script_options()
+            .import_wayk_now_module
+            .is_none());
         assert!(options.install_options().embed_msi.is_none());
         let expected_supported_architectures = vec![Bitness::X86, Bitness::X64];
         assert_eq!(

@@ -6,19 +6,19 @@ use std::{
 };
 
 use clap::{App as ArgParser, Arg, ArgMatches};
-use log::{info, warn, debug};
+use log::{info, warn};
 
-use tempfile::tempdir;
 use anyhow::Context;
+use tempfile::tempdir;
 
 use crate::{
+    artifacts_bundle::ArtifactsBundle,
     branding::{extract_branding_icon, get_product_name},
     bundle::{Bitness, BundlePackageType, BundlePacker},
-    resource_patcher::ResourcePatcher,
-    signing::sign_executable,
     cse_options::CseOptions,
     download::{download_latest_msi, download_latest_zip},
-    artifacts_bundle::ArtifactsBundle,
+    resource_patcher::ResourcePatcher,
+    signing::sign_executable,
 };
 
 pub struct WaykCsePatcher;
@@ -33,8 +33,7 @@ impl WaykCsePatcher {
 
         let mut cse_binary_reader: &[u8] = cse_binary.as_ref();
 
-        let mut cse_target_file = File::create(path)
-            .context("Failed co create output file")?;
+        let mut cse_target_file = File::create(path).context("Failed co create output file")?;
         io::copy(&mut cse_binary_reader, &mut cse_target_file)
             .context("Failed to extract original cse file")?;
 
@@ -42,13 +41,14 @@ impl WaykCsePatcher {
     }
 
     pub fn run(self) -> anyhow::Result<()> {
-
         let args = Self::parse_arguments();
 
-        let working_dir = tempdir()
-            .context("Failed to create temp workind directory")?;
+        let working_dir = tempdir().context("Failed to create temp workind directory")?;
 
-        info!("Patcher working directory: {}", working_dir.path().display());
+        info!(
+            "Patcher working directory: {}",
+            working_dir.path().display()
+        );
 
         let output_path = Path::new(args.value_of("OUTPUT").unwrap());
         let config_path = Path::new(args.value_of("CONFIG").unwrap());
@@ -65,7 +65,8 @@ impl WaykCsePatcher {
 
         info!("Generating CSE configuration...");
         let processed_options_path = working_dir.path().join("options.json");
-        options.save_finalized_options(&processed_options_path)
+        options
+            .save_finalized_options(&processed_options_path)
             .context("Failed to process options")?;
         bundle.add_bundle_package(BundlePackageType::CseOptions, &processed_options_path);
 
@@ -73,22 +74,31 @@ impl WaykCsePatcher {
             info!("Downloading artifacts zip for {} architecture...", bitness);
             let artifacts_zip_path = working_dir.path().join(format!("Wayk_{}.zip", bitness));
             download_latest_zip(&artifacts_zip_path, bitness).with_context(|| {
-                format!("Failed to download WaykNow executable for {} architecture", bitness)
+                format!(
+                    "Failed to download WaykNow executable for {} architecture",
+                    bitness
+                )
             })?;
             bundle.add_bundle_package(
-                BundlePackageType::WaykBinaries { bitness: bitness.clone() },
-                &artifacts_zip_path
+                BundlePackageType::WaykBinaries {
+                    bitness: bitness.clone(),
+                },
+                &artifacts_zip_path,
             );
 
             if options.install_options().embed_msi.unwrap_or(true) {
                 info!("Downloading msi installer for {} architecture...", bitness);
-                let msi_path = working_dir.path().join(format!("Installer_{}.msi", bitness));
+                let msi_path = working_dir
+                    .path()
+                    .join(format!("Installer_{}.msi", bitness));
                 download_latest_msi(&msi_path, bitness).with_context(|| {
                     format!("Failed to download MSI for {} architecture", bitness)
                 })?;
                 bundle.add_bundle_package(
-                    BundlePackageType::InstallationMsi { bitness: bitness.clone() },
-                    &msi_path
+                    BundlePackageType::InstallationMsi {
+                        bitness: bitness.clone(),
+                    },
+                    &msi_path,
                 );
             }
         }
@@ -129,11 +139,13 @@ impl WaykCsePatcher {
                     product_name = Some(value);
                 }
                 Err(e) => {
-                    warn!("Failed to get product name, fallback to default name: {}", e);
+                    warn!(
+                        "Failed to get product name, fallback to default name: {}",
+                        e
+                    );
                 }
             };
         }
-
 
         patcher.set_product_name(product_name.as_deref().unwrap_or("Wayk Now"));
 

@@ -6,7 +6,6 @@ use std::{
 use log::warn;
 use thiserror::Error;
 
-
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("Signtool executaion failed: ({0})")]
@@ -16,7 +15,6 @@ pub enum Error {
 }
 
 pub type SigningResult<T> = Result<T, Error>;
-
 
 pub fn sign_executable(executable_path: &Path, cert_name: &str) -> SigningResult<()> {
     let signtool_path = get_signtool_path()?;

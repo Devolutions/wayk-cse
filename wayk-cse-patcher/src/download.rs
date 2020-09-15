@@ -1,19 +1,13 @@
 use std::{
-    fs,
-    io,
-    path::{Path, PathBuf},
+    fs, io,
+    path::{Path},
 };
 
-use url::Url;
-use thiserror::Error;
 use regex::Regex;
+use thiserror::Error;
+use url::Url;
 
-use crate::{
-    fs_util::remove_file_after_reboot,
-    version::NowVersion,
-    bundle::Bitness,
-};
-
+use crate::{bundle::Bitness, fs_util::remove_file_after_reboot, version::NowVersion};
 
 const VERSION_URL: &str = "https://devolutions.net/products.htm";
 
@@ -39,7 +33,11 @@ impl Error {
 
 pub type DownloadResult<T> = Result<T, Error>;
 
-fn construct_package_url(bitness: &Bitness, version: NowVersion, extension: &str) -> DownloadResult<Url> {
+fn construct_package_url(
+    bitness: &Bitness,
+    version: NowVersion,
+    extension: &str,
+) -> DownloadResult<Url> {
     let url = Url::parse(&format!(
         "https://cdn.devolutions.net/download/Wayk/{0}/WaykNow-{1}-{0}.{2}",
         version.as_quad(),
@@ -59,7 +57,9 @@ fn construct_zip_url(bitness: &Bitness, version: NowVersion) -> DownloadResult<U
 }
 
 fn download_msi(destination: &Path, url: &Url) -> DownloadResult<()> {
-    let client = reqwest::blocking::Client::builder().user_agent(get_agent()).build()?;
+    let client = reqwest::blocking::Client::builder()
+        .user_agent(get_agent())
+        .build()?;
     let mut response = client.get(url.as_str()).send()?;
     let mut out = fs::File::create(destination)?;
     io::copy(&mut response, &mut out)?;
@@ -80,7 +80,9 @@ pub fn download_latest_msi(destination: &Path, bitness: &Bitness) -> DownloadRes
 }
 
 pub fn get_remote_version() -> DownloadResult<NowVersion> {
-    let client = reqwest::blocking::Client::builder().user_agent(get_agent()).build()?;
+    let client = reqwest::blocking::Client::builder()
+        .user_agent(get_agent())
+        .build()?;
     let body = client.get(VERSION_URL).send()?.text()?;
 
     let version_regex = Regex::new(r#"Wayk\.Version=(\d+).(\d+).(\d+).(\d+)"#).unwrap();
@@ -90,14 +92,24 @@ pub fn get_remote_version() -> DownloadResult<NowVersion> {
 
     let expected_captures_len = 5;
     if expected_captures_len != captures.len() {
-        return Err(Error::RemoteVersionNotDetected(String::from("version has invalid fomat")))
+        return Err(Error::RemoteVersionNotDetected(String::from(
+            "version has invalid fomat",
+        )));
     }
 
     Ok(NowVersion::from_quad([
-            captures[1].parse::<u32>().map_err(Error::from_quad_parse_error)?,
-            captures[2].parse::<u32>().map_err(Error::from_quad_parse_error)?,
-            captures[3].parse::<u32>().map_err(Error::from_quad_parse_error)?,
-            captures[4].parse::<u32>().map_err(Error::from_quad_parse_error)?,
+        captures[1]
+            .parse::<u32>()
+            .map_err(Error::from_quad_parse_error)?,
+        captures[2]
+            .parse::<u32>()
+            .map_err(Error::from_quad_parse_error)?,
+        captures[3]
+            .parse::<u32>()
+            .map_err(Error::from_quad_parse_error)?,
+        captures[4]
+            .parse::<u32>()
+            .map_err(Error::from_quad_parse_error)?,
     ]))
 }
 

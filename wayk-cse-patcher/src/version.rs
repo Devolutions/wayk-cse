@@ -1,7 +1,6 @@
 use std::fmt::Write;
 
-use log::info;
-use version_compare::{CompOp, VersionCompare};
+
 
 
 #[derive(Debug, Clone, Copy)]
