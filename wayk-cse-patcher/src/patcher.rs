@@ -1,12 +1,12 @@
 use std::{
     env,
     fs::{self, File},
-    io,
+    io::{self, Read, Write},
     path::Path,
 };
 
 use clap::{App as ArgParser, Arg, ArgMatches};
-use log::{info, warn};
+use log::{info, warn, debug};
 
 use tempfile::tempdir;
 use anyhow::Context;
@@ -16,6 +16,9 @@ use crate::{
     bundle::{Bitness, BundlePackageType, BundlePacker},
     resource_patcher::ResourcePatcher,
     signing::sign_executable,
+    cse_options::CseOptions,
+    download::{download_latest_msi, download_latest_zip},
+    artifacts_bundle::ArtifactsBundle,
 };
 
 pub struct WaykCsePatcher;
@@ -25,69 +28,84 @@ impl WaykCsePatcher {
         WaykCsePatcher
     }
 
+    fn extract_empty_cse(path: &Path) -> anyhow::Result<()> {
+        let cse_binary = include_bytes!(env!("WAYK_CSE_PATH"));
+
+        let mut cse_binary_reader: &[u8] = cse_binary.as_ref();
+
+        let mut cse_target_file = File::create(path)
+            .context("Failed co create output file")?;
+        io::copy(&mut cse_binary_reader, &mut cse_target_file)
+            .context("Failed to extract original cse file")?;
+
+        Ok(())
+    }
+
     pub fn run(self) -> anyhow::Result<()> {
 
         let args = Self::parse_arguments();
 
-        let working_dir = tempdir().context("Failed to create temp workind directory");
-        let output_path = args.value_of("OUTPUT").unwrap();
+        let working_dir = tempdir()
+            .context("Failed to create temp workind directory")?;
 
-        let wayk_cse_binary = include_bytes!(env!("WAYK_CSE_PATH"));
-    /*
+        info!("Patcher working directory: {}", working_dir.path().display());
 
-        let wayk_cse_dummy_path = match args.value_of("WAYK_CSE_DUMMY_PATH") {
-            Some(path) => Path::new(path).into(),
-            None => env::current_exe()
-                .map(|current_exe| current_exe.join("WaykCseDummy.exe"))
-                .map_err(|e| WaykCseError::PatchingError(format!("Failed to get default wayk dummy path -> {0}", e)))?,
-        };
+        let output_path = Path::new(args.value_of("OUTPUT").unwrap());
+        let config_path = Path::new(args.value_of("CONFIG").unwrap());
 
-        if !wayk_cse_dummy_path.exists() {
-            return Err(WaykCseError::PatchingError(
-                "Provided WaykCseDummy path is does not exist".into(),
-            ));
-        }
+        let options = CseOptions::load(config_path)?;
+
+        info!("Extracting empty CSE binary...");
+        Self::extract_empty_cse(output_path)?;
 
         let mut patcher = ResourcePatcher::new();
+        patcher.set_original_binary_path(output_path);
 
-        info!("Copying dummy binary to patch...");
+        let mut bundle = BundlePacker::new();
 
-        fs::copy(&wayk_cse_dummy_path, output_path)
-            .map_err(|e| WaykCseError::PatchingError(format!("Failed to copy WaykCseDummy -> {0}", e)))?;
+        info!("Generating CSE configuration...");
+        let processed_options_path = working_dir.path().join("options.json");
+        options.save_finalized_options(&processed_options_path)
+            .context("Failed to process options")?;
+        bundle.add_bundle_package(BundlePackageType::CseOptions, &processed_options_path);
 
-        patcher.set_original_binary_path(Path::new(output_path));
+        for bitness in &options.install_options().supported_architectures {
+            info!("Downloading artifacts zip for {} architecture...", bitness);
+            let artifacts_zip_path = working_dir.path().join(format!("Wayk_{}.zip", bitness));
+            download_latest_zip(&artifacts_zip_path, bitness).with_context(|| {
+                format!("Failed to download WaykNow executable for {} architecture", bitness)
+            })?;
+            bundle.add_bundle_package(
+                BundlePackageType::WaykBinaries { bitness: bitness.clone() },
+                &artifacts_zip_path
+            );
 
-        if let Some(value) = args.value_of("WAYK_EXTRACTION_PATH") {
-            patcher.set_wayk_cse_option(WaykCseOption::WaykExtractionPath, value);
+            if options.install_options().embed_msi.unwrap_or(true) {
+                info!("Downloading msi installer for {} architecture...", bitness);
+                let msi_path = working_dir.path().join(format!("Installer_{}.msi", bitness));
+                download_latest_msi(&msi_path, bitness).with_context(|| {
+                    format!("Failed to download MSI for {} architecture", bitness)
+                })?;
+                bundle.add_bundle_package(
+                    BundlePackageType::InstallationMsi { bitness: bitness.clone() },
+                    &msi_path
+                );
+            }
         }
-        if let Some(value) = args.value_of("WAYK_DATA_PATH") {
-            patcher.set_wayk_cse_option(WaykCseOption::WaykDataPath, value);
-        }
-        if let Some(value) = args.value_of("WAYK_SYSTEM_PATH") {
-            patcher.set_wayk_cse_option(WaykCseOption::WaykSystemPath, value);
-        }
 
-        let mut bundle_packer = BundlePacker::new();
-
-        if let Some(value) = args.value_of("INIT_SCRIPT_PATH") {
-            info!("Downloading powershell module...");
-
-            let wayk_ps_version = args.value_of("WAYK_PS_VERSION");
-            let wayk_ps_path = download_module("WaykNow", wayk_ps_version, working_dir.path())?;
-
-            bundle_packer.add_bundle_package(BundlePackageType::PowerShellModule, &wayk_ps_path);
-
-            bundle_packer.add_bundle_package(BundlePackageType::CustomInitializationScript, Path::new(value));
+        if let Some(script_path) = &options.post_install_script_options().path {
+            info!("Embedding Power Shell script...");
+            let script_path = Path::new(script_path);
+            bundle.add_bundle_package(BundlePackageType::CustomInitializationScript, script_path);
         }
 
         let mut product_name = None;
-
-        if let Some(value) = args.value_of("WITH_BRANDING_PATH") {
+        if let Some(branding_path) = &options.branding_options().path {
             info!("Processing branding file...");
+            let branding_path = Path::new(branding_path);
+            bundle.add_bundle_package(BundlePackageType::BrandingZip, branding_path);
 
-            bundle_packer.add_bundle_package(BundlePackageType::BrandingZip, Path::new(value));
-
-            let icon_data = extract_branding_icon(Path::new(value))
+            let icon_data = extract_branding_icon(branding_path)
                 .map_err(|e| {
                     warn!("Failed to extract branding icon: {}", e);
                 })
@@ -101,80 +119,39 @@ impl WaykCsePatcher {
                         let mut reader = icon_data.as_slice();
                         io::copy(&mut reader, &mut file).unwrap();
                     })
-                    .map_err(|e| WaykCseError::PatchingError(format!("Failed to write icon file: -> {0}", e)))?;
+                    .context("Failed to write branding icon file")?;
 
                 patcher.set_icon_path(&icon_path);
             }
 
-            match get_product_name(Path::new(value)) {
+            match get_product_name(branding_path) {
                 Ok(value) => {
                     product_name = Some(value);
                 }
                 Err(e) => {
-                    warn!("Failed to get product name, fallback to default: {}", e);
+                    warn!("Failed to get product name, fallback to default name: {}", e);
                 }
             };
         }
 
-        patcher.set_wayk_cse_option(
-            WaykCseOption::WaykProductName,
-            product_name.as_deref().unwrap_or("Wayk Now"),
-        );
 
-        let enable_auto_clean = args.is_present("ENABLE_AUTO_CLEAN");
-
-        let auto_clean_option_value = if enable_auto_clean { "1" } else { "0" };
-        patcher.set_wayk_cse_option(WaykCseOption::EnableWaykAutoClean, auto_clean_option_value);
-
-        let enable_unattended = args.is_present("WITH_UNATTENDED");
-
-        let unattended_option_value = if enable_unattended { "1" } else { "0" };
-        patcher.set_wayk_cse_option(WaykCseOption::EnableUnattendedService, unattended_option_value);
-
-        if let Some(value) = args.value_of("WAYK_BIN_X86_PATH") {
-            bundle_packer.add_bundle_package(
-                BundlePackageType::WaykBinariesArchive {
-                    bitness: Bitness::X86,
-                    enable_unattended,
-                },
-                Path::new(value),
-            );
-        }
-
-        if let Some(value) = args.value_of("WAYK_BIN_X64_PATH") {
-            bundle_packer.add_bundle_package(
-                BundlePackageType::WaykBinariesArchive {
-                    bitness: Bitness::X64,
-                    enable_unattended,
-                },
-                Path::new(value),
-            );
-        }
+        patcher.set_product_name(product_name.as_deref().unwrap_or("Wayk Now"));
 
         info!("Packing bundle archive...");
-
         let bundle_path = working_dir.path().join("bundle.7z");
-        bundle_packer.pack(&bundle_path)?;
+        bundle.pack(&bundle_path)?;
 
         info!("Patching executable...");
-
         patcher.set_wayk_bundle_path(&bundle_path);
-        patcher.patch()?;
+        patcher.patch().context("Failed to patch CSE executable")?;
 
-        if args.is_present("ENABLE_SIGNING") {
+        if let Some(cert_name) = &options.signing_options().cert_name {
             info!("Signing executable...");
-            let cert_name = args.value_of("SIGNING_CERT_NAME").unwrap();
-            sign_executable(Path::new(output_path), cert_name)?;
+            sign_executable(Path::new(output_path), &cert_name)?;
         }
 
         info!("Wayk CSE build successful!");
-*/
         Ok(())
-    }
-
-    pub fn create_dir(path: &Path) -> anyhow::Result<()> {
-        fs::create_dir(path)
-            .with_context(|| format!("Failed to create directory {}", path.display()))
     }
 
     fn parse_arguments() -> ArgMatches<'static> {

@@ -16,6 +16,7 @@ use crate::{
     artifacts_bundle::{self, ArtifactsBundle},
 };
 
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub enum Bitness {
     X86,
     X64,

@@ -5,10 +5,12 @@ use std::{
 };
 
 use json::JsonValue;
-use bitness::Bitness;
 use thiserror::Error;
 
-use crate::error::{WaykCseResult, WaykCseError};
+use crate::{
+    error::{WaykCseResult, WaykCseError},
+    bundle::Bitness,
+};
 use std::io::Write;
 
 
@@ -95,15 +97,15 @@ impl CseOptions {
         }
         if let Some(architectures) = json_data["install"]["architecture"].as_str() {
             match architectures {
-                "x86" => install_options.supported_architectures.push(Bitness::X86_32),
-                "x64" => install_options.supported_architectures.push(Bitness::X86_64),
+                "x86" => install_options.supported_architectures.push(Bitness::X86),
+                "x64" => install_options.supported_architectures.push(Bitness::X64),
                 _ => {},
             };
         }
 
         if install_options.supported_architectures.is_empty() {
-            install_options.supported_architectures.push(Bitness::X86_32);
-            install_options.supported_architectures.push(Bitness::X86_64);
+            install_options.supported_architectures.push(Bitness::X86);
+            install_options.supported_architectures.push(Bitness::X64);
         }
 
         Ok(Self {
@@ -199,7 +201,7 @@ mod tests {
         let expected_embed_msi = Some(true);
         assert_eq!(options.install_options().embed_msi.as_ref(), expected_embed_msi.as_ref());
 
-        let expected_supported_architectures = vec![Bitness::X86_32, Bitness::X86_64];
+        let expected_supported_architectures = vec![Bitness::X86, Bitness::X64];
         assert_eq!(options.install_options().supported_architectures, expected_supported_architectures);
     }
 
@@ -213,7 +215,7 @@ mod tests {
         assert!(options.post_install_script_options().path.is_none());
         assert!(options.post_install_script_options().import_wayk_now_module.is_none());
         assert!(options.install_options().embed_msi.is_none());
-        let expected_supported_architectures = vec![Bitness::X86_32, Bitness::X86_64];
+        let expected_supported_architectures = vec![Bitness::X86, Bitness::X64];
         assert_eq!(
             options.install_options().supported_architectures,
             expected_supported_architectures

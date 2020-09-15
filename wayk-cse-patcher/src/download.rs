@@ -4,7 +4,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use bitness::Bitness;
 use url::Url;
 use thiserror::Error;
 use regex::Regex;
@@ -13,6 +12,7 @@ use crate::{
     fs_util::remove_file_after_reboot,
     error::{WaykCseError, WaykCseResult},
     version::NowVersion,
+    bundle::Bitness,
 };
 
 
@@ -40,19 +40,11 @@ impl Error {
 
 pub type DownloadResult<T> = Result<T, Error>;
 
-fn bitness_to_str(bitness: &Bitness) -> DownloadResult<&'static str> {
-    match bitness {
-        Bitness::X86_64 => Ok("x64"),
-        Bitness::X86_32 => Ok("x86"),
-        Bitness::Unknown => Err(Error::InvalidBitness),
-    }
-}
-
 fn construct_package_url(bitness: &Bitness, version: NowVersion, extension: &str) -> DownloadResult<Url> {
     let url = Url::parse(&format!(
         "https://cdn.devolutions.net/download/Wayk/{0}/WaykNow-{1}-{0}.{2}",
         version.as_quad(),
-        bitness_to_str(bitness)?,
+        bitness,
         extension
     ))?;
 
@@ -121,12 +113,12 @@ mod tests {
     #[test]
     #[ignore]
     fn test_download() {
-        download_latest_msi(Path::new("D:\\wn.msi"), &Bitness::X86_64).unwrap();
+        download_latest_msi(Path::new("D:\\wn.msi"), &Bitness::X64).unwrap();
     }
 
     #[test]
     #[ignore]
     fn test_download_zip() {
-        download_latest_zip(Path::new("D:\\wn.zip"), &Bitness::X86_64).unwrap();
+        download_latest_zip(Path::new("D:\\wn.zip"), &Bitness::X64).unwrap();
     }
 }
