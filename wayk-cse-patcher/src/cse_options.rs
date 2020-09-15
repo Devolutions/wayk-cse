@@ -8,7 +8,6 @@ use json::JsonValue;
 use thiserror::Error;
 
 use crate::{
-    error::{WaykCseResult, WaykCseError},
     bundle::Bitness,
 };
 use std::io::Write;
@@ -20,6 +19,8 @@ pub enum CseOptionsError {
     JsonParsingFailure(json::Error),
     #[error("Encountered IO error ({0})")]
     IoError(io::Error),
+    #[error("Invalid JSON value '{value}' for key '{key}'")]
+    InvalidValue { key: String, value: String }
 }
 
 impl From<json::Error> for CseOptionsError {
@@ -69,9 +70,8 @@ pub struct CseOptions {
 }
 
 impl CseOptions {
-    pub fn load(path: &Path) -> CseOptionsResult<Self> {
-        let json_str = read_to_string(path)?;
-        let json_data = json::parse(&json_str)?;
+    pub fn load_from_str(json_str: &str) -> CseOptionsResult<Self> {
+        let json_data = json::parse(json_str)?;
 
         let mut branding_options = BrandingOptions::default();
 
@@ -99,7 +99,13 @@ impl CseOptions {
             match architectures {
                 "x86" => install_options.supported_architectures.push(Bitness::X86),
                 "x64" => install_options.supported_architectures.push(Bitness::X64),
-                _ => {},
+                "all" => {}
+                value => {
+                    return Err(CseOptionsError::InvalidValue {
+                        key: "install.architecture".to_string(),
+                        value: value.to_string()
+                    });
+                },
             };
         }
 
@@ -117,7 +123,12 @@ impl CseOptions {
         })
     }
 
-    pub fn save_finalized_options(&self, path: &Path) -> CseOptionsResult<()> {
+    pub fn load(path: &Path) -> CseOptionsResult<Self> {
+        let json_str = read_to_string(path)?;
+        Self::load_from_str(&json_str)
+    }
+
+        pub fn save_finalized_options(&self, path: &Path) -> CseOptionsResult<()> {
         let mut opts = self.json_data.clone();
 
         // Remove development environment info (e.g local paths, signing data)
@@ -179,7 +190,7 @@ mod tests {
     }
 
     #[test]
-    fn options_processing_all() {
+    fn options_parsing_all() {
         let options = CseOptions::load(Path::new("tests/data/options.json"))
             .unwrap();
 
@@ -204,6 +215,33 @@ mod tests {
         let expected_supported_architectures = vec![Bitness::X86, Bitness::X64];
         assert_eq!(options.install_options().supported_architectures, expected_supported_architectures);
     }
+
+    #[test]
+    fn install_architecture_x86() {
+        let options = CseOptions::load_from_str(
+            "{\"install\":{\"architecture\": \"x86\"}}"
+        ).unwrap();
+        assert_eq!(options.install_options().supported_architectures.len(), 1);
+        assert_eq!(options.install_options().supported_architectures[0], Bitness::X86);
+    }
+
+    #[test]
+    fn install_architecture_x64() {
+        let options = CseOptions::load_from_str(
+            "{\"install\":{\"architecture\": \"x64\"}}"
+        ).unwrap();
+        assert_eq!(options.install_options().supported_architectures.len(), 1);
+        assert_eq!(options.install_options().supported_architectures[0], Bitness::X64);
+    }
+
+    #[test]
+    fn install_architecture_invalid() {
+        let options_result = CseOptions::load_from_str(
+            "{\"install\":{\"architecture\": \"sdsdfsa\"}}"
+        );
+        assert!(options_result.is_err());
+    }
+
 
     #[test]
     fn options_processing_empty() {

@@ -12,7 +12,6 @@ use zip::ZipArchive;
 use thiserror::Error;
 
 use crate::{
-    error::{WaykCseError, WaykCseResult},
     artifacts_bundle::{self, ArtifactsBundle},
 };
 
@@ -83,7 +82,7 @@ impl BundlePacker {
                 }
                 BundlePackageType::InstallationMsi { bitness } => {
                     fs::copy(package_path, bundle_directory.path()
-                        .join(format!("Installer_{}.zip", bitness)))?;
+                        .join(format!("Installer_{}.msi", bitness)))?;
                 }
                 BundlePackageType::BrandingZip => {
                     fs::copy(package_path, bundle_directory.path().join("branding.zip"))?;
@@ -150,7 +149,10 @@ mod tests {
         };
 
         let mut packer = BundlePacker::new();
-        packer.add_bundle_package(BundlePackageType::BrandingZip, Path::new("tests/data/branding.zip"));
+        packer.add_bundle_package(
+            BundlePackageType::BrandingZip,
+            Path::new("tests/data/branding.zip")
+        );
         packer.add_bundle_package(
             BundlePackageType::CustomInitializationScript,
             Path::new("tests/data/fake_init_script.ps1"),
@@ -167,6 +169,18 @@ mod tests {
             },
             Path::new("tests/data/wayk_now_mock_binaries.zip"),
         );
+        packer.add_bundle_package(
+            BundlePackageType::CseOptions,
+            Path::new("tests/data/options.json")
+        );
+        packer.add_bundle_package(
+            BundlePackageType::InstallationMsi { bitness: Bitness::X86 },
+            Path::new("tests/data/fake_installer.msi")
+        );
+        packer.add_bundle_package(
+            BundlePackageType::InstallationMsi { bitness: Bitness::X64 },
+            Path::new("tests/data/fake_installer.msi")
+        );
 
         packer.pack(&temp_path).unwrap();
 
@@ -177,11 +191,12 @@ mod tests {
             .unwrap();
 
         let stdout = std::str::from_utf8(&output.stdout).unwrap().to_string();
-        assert!(stdout.contains("Wayk_x64"));
-        assert!(stdout.contains("Wayk_x86"));
+        assert!(stdout.contains("WaykNow_x64.exe"));
+        assert!(stdout.contains("WaykNow_x86.exe"));
+        assert!(stdout.contains("Installer_x86.msi"));
+        assert!(stdout.contains("Installer_x64.msi"));
         assert!(stdout.contains("branding.zip"));
         assert!(stdout.contains("init.ps1"));
-        assert!(stdout.contains("test_file.txt"));
-        assert!(stdout.contains("normal_file.txt"));
+        assert!(stdout.contains("options.json"));
     }
 }

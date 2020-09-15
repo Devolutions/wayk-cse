@@ -15,7 +15,7 @@
     },
 	"install": {
 		"embedMsi": true,
-		"architecure": "any",
+		"architecure": "all",
 		"startAfterInsatll": true
 	},
 	"postInstallScript": {

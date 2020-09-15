@@ -10,7 +10,6 @@ use regex::Regex;
 
 use crate::{
     fs_util::remove_file_after_reboot,
-    error::{WaykCseError, WaykCseResult},
     version::NowVersion,
     bundle::Bitness,
 };
@@ -119,6 +118,6 @@ mod tests {
     #[test]
     #[ignore]
     fn test_download_zip() {
-        download_latest_zip(Path::new("D:\\wn.zip"), &Bitness::X64).unwrap();
+        download_latest_zip(Path::new("D:\\wn.zip"), &Bitness::X86).unwrap();
     }
 }

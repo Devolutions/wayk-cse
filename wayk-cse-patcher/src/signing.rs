@@ -6,7 +6,6 @@ use std::{
 use log::warn;
 use thiserror::Error;
 
-use crate::error::{WaykCseError, WaykCseResult};
 
 #[derive(Error, Debug)]
 pub enum Error {

@@ -3,7 +3,6 @@ use std::fmt::Write;
 use log::info;
 use version_compare::{CompOp, VersionCompare};
 
-use crate::error::{WaykCseResult, WaykCseError};
 
 #[derive(Debug, Clone, Copy)]
 pub struct NowVersion {

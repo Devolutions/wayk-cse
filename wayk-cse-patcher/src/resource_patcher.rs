@@ -6,8 +6,6 @@ use std::{
 use rcedit::{RceditResult, ResourceUpdater};
 use thiserror::Error;
 
-use crate::error::{WaykCseError, WaykCseResult};
-
 const WAYK_BUNDLE_RESOURCE_ID: u32 = 102;
 const PRODUCT_NAME_RESOURCE_ID: u32 = 103;
 
