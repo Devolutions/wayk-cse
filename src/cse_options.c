@@ -2,10 +2,11 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #include <lizard/LzJson.h>
 
-typedef struct wayk_now_config_option
+struct wayk_now_config_option
 {
 	char* key;
 	char* value;
@@ -62,6 +63,33 @@ struct cse_options
 	char* enrollmentUrl;
 	char* enrollmentToken;
 };
+
+static char* ToSnakeCase(const char* str)
+{
+	unsigned int originalSize = strlen(str);
+	unsigned int bufferSize = originalSize * 2;
+	unsigned int currentSize = 0;
+	char* buffer = calloc(bufferSize, sizeof(char));
+	if (!buffer)
+	{
+		return 0;
+	}
+
+	for (unsigned int i = 0; i < originalSize; ++i)
+	{
+		if (isupper(str[i]) && (i != 0))
+		{
+			buffer[currentSize++] = '_';
+			buffer[currentSize++] = str[i];
+		}
+		else
+		{
+			buffer[currentSize++] = _toupper(str[i]);
+		}
+	}
+
+	return buffer;
+}
 
 
 CseOptions* CseOptions_New()
