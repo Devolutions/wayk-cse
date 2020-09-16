@@ -1,4 +1,3 @@
-
 cmake_minimum_required(VERSION 3.0)
 
 project(WaykCse C CXX)
@@ -99,10 +98,12 @@ source_group("Resources" FILES ${${MODULE_PREFIX}_RESOURCES})
 
 set(${MODULE_PREFIX}_LIB_SOURCES
 	src/cse_utils.c
-	src/bundle.c)
+	src/bundle.c
+	src/cse_options.c)
 set(${MODULE_PREFIX}_LIB_HEADERS
 	include/cse/cse_utils.h
-	include/cse/bundle.h)
+	include/cse/bundle.h
+	include/cse/cse_options.h)
 
 set(${MODULE_PREFIX}_SOURCES src/main.c)
 
