@@ -4,7 +4,7 @@
 char* ExpandEnvironmentVariables(const char* input);
 
 char* GetWaykCseOption(int key);
-char* GetWaykCsePathOption(int key);
+char* GetProductName();
 
 int GetPowerShellPath(char* pathBuffer, int pathBufferPath);
 int GetCmdPath(char* pathBuffer, int pathBufferSize);

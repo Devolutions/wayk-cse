@@ -1,4 +1,3 @@
-
 #include <windows.h>
 #include <strsafe.h>
 
@@ -6,7 +5,6 @@
 
 #include <cse/cse_utils.h>
 #include <cse/bundle.h>
-#include <resource.h>
 
 #define MAX_TEXT_MESSAGE_SIZE 1024
 
@@ -40,12 +38,13 @@ static int ExtractBundle(
 
 	WaykCseBundle* bundle = WaykCseBundle_Open();
 
+	/*
 	if (WaykCseBundle_ExtractWaykBinaries(bundle, extractionPath, bitness) != WAYK_CSE_BUNDLE_OK)
 	{
 		// Hard failure; Nothing to launch.
 		goto cleanup;
 	}
-
+	*/
 	if (WaykCseBundle_ExtractBrandingZip(bundle, waykDataPath) == WAYK_CSE_BUNDLE_OK)
 	{
 		contentInfo->hasBranding = true;
@@ -54,12 +53,14 @@ static int ExtractBundle(
 	// Extract PS module only if configuration with init script is needed
 	if (WaykCseBundle_ExtractPowerShellInitScript(bundle, extractionPath) == WAYK_CSE_BUNDLE_OK)
 	{
+		/*
 		if (WaykCseBundle_ExtractPowerShellModule(bundle, extractionPath) != WAYK_CSE_BUNDLE_OK)
 		{
 			goto cleanup;
 		}
 
 		contentInfo->hasPowerShellInitScript = true;
+		 */
 	}
 
 	status = LZ_OK;
@@ -214,11 +215,11 @@ int CseServiceLauncherMain()
 	char* enableAutoCleanOpt = NULL;
 	char* productName = NULL;
 
-	extractionPath = GetWaykCsePathOption(IDS_WAYK_EXTRACTION_PATH);
-	systemPath = GetWaykCsePathOption(IDS_WAYK_OPTION_SYSTEM_PATH);
-	dataPath = GetWaykCsePathOption(IDS_WAYK_OPTION_DATA_PATH);
-	productName = GetWaykCseOption(IDS_WAYK_PRODUCT_NAME);
-	enableAutoCleanOpt = GetWaykCseOption(IDS_WAYK_OPTION_AUTO_CLEAN);
+	extractionPath = ""; //GetWaykCsePathOption(IDS_WAYK_EXTRACTION_PATH);
+	systemPath = ""; //GetWaykCsePathOption(IDS_WAYK_OPTION_SYSTEM_PATH);
+	dataPath = ""; //GetWaykCsePathOption(IDS_WAYK_OPTION_DATA_PATH);
+	productName = GetProductName();
+	enableAutoCleanOpt = ""; //GetWaykCseOption(IDS_WAYK_OPTION_AUTO_CLEAN);
 
 	enableAutoClean = (strcmp(enableAutoCleanOpt, "1") == 0);
 
@@ -310,12 +311,12 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, WCHAR* lpCmdLi
 
 	ZeroMemory(&bundleOptionalContentInfo, sizeof(BundleOptionalContentInfo));
 
-	extractionPath = GetWaykCsePathOption(IDS_WAYK_EXTRACTION_PATH);
-	dataPath = GetWaykCsePathOption(IDS_WAYK_OPTION_DATA_PATH);
-	systemPath = GetWaykCsePathOption(IDS_WAYK_OPTION_SYSTEM_PATH);
-	enableUnattendedServiceOpt = GetWaykCseOption(IDS_WAYK_OPTION_UNATTENDED);
-	productName = GetWaykCseOption(IDS_WAYK_PRODUCT_NAME);
-	enableAutoCleanOpt = GetWaykCseOption(IDS_WAYK_OPTION_AUTO_CLEAN);
+	extractionPath = ""; //GetWaykCsePathOption(IDS_WAYK_EXTRACTION_PATH);
+	dataPath = ""; //GetWaykCsePathOption(IDS_WAYK_OPTION_DATA_PATH);
+	systemPath = ""; //GetWaykCsePathOption(IDS_WAYK_OPTION_SYSTEM_PATH);
+	enableUnattendedServiceOpt = ""; //GetWaykCseOption(IDS_WAYK_OPTION_UNATTENDED);
+	productName = GetProductName();
+	enableAutoCleanOpt = ""; //GetWaykCseOption(IDS_WAYK_OPTION_AUTO_CLEAN);
 
 	if (__argc > 1)
 	{

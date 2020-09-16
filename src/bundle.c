@@ -8,7 +8,14 @@
 
 #define BRANDING_FILE_NAME "branding.zip"
 #define POWER_SHELL_INIT_SCRIPT_FILE_NAME "init.ps1"
-#define POWER_SHELL_MODULE_DIR_NAME "PowerShell"
+
+#define INSTALLER_FILE_NAME_X86 "Installer_x86.msi"
+#define INSTALLER_FILE_NAME_X64 "Installer_x64.msi"
+
+#define WAYK_NOW_BINARY_FILE_NAME_X86 "WaykNow_x86.exe"
+#define WAYK_NOW_BINARY_FILE_NAME_X64 "WaykNow_x64.exe"
+
+#define JSON_OPTIONS_FILE_NAME "options.json"
 
 struct waykcse_bundle
 {
@@ -110,6 +117,30 @@ WaykCseBundleStatus WaykCseBundle_ExtractBrandingZip(
 	return WaykCseBundle_ExtractSingleFile(ctx, targetFolder, BRANDING_FILE_NAME);
 }
 
+WaykCseBundleStatus WaykCseBundle_ExtractWaykNowExecutable(
+	WaykCseBundle* ctx,
+	WaykBinariesBitness bitness,
+	const char* targetFolder)
+{
+	const char* sourceFile = (bitness == WAYK_BINARIES_BITNESS_X86)
+		? WAYK_NOW_BINARY_FILE_NAME_X86
+		: WAYK_NOW_BINARY_FILE_NAME_X64;
+
+	return WaykCseBundle_ExtractSingleFile(ctx, targetFolder, sourceFile);
+}
+
+WaykCseBundleStatus WaykCseBundle_ExtractWaykNowInstaller(
+	WaykCseBundle* ctx,
+	WaykBinariesBitness bitness,
+	const char* targetFolder)
+{
+	const char* sourceFile = (bitness == WAYK_BINARIES_BITNESS_X86)
+		? INSTALLER_FILE_NAME_X86
+		: INSTALLER_FILE_NAME_X64;
+
+	return WaykCseBundle_ExtractSingleFile(ctx, targetFolder, sourceFile);
+}
+
 WaykCseBundleStatus WaykCseBundle_ExtractPowerShellInitScript(
 	WaykCseBundle* ctx,
 	const char* targetFolder)
@@ -117,134 +148,9 @@ WaykCseBundleStatus WaykCseBundle_ExtractPowerShellInitScript(
 	return WaykCseBundle_ExtractSingleFile(ctx, targetFolder, POWER_SHELL_INIT_SCRIPT_FILE_NAME);
 }
 
-static bool IsStringPrefixedWith(const char *str, const char *prefix)
-{
-	return strncmp(prefix, str, strlen(prefix)) == 0;
-}
-
-static void TrimPrefix(char *str, const char *prefix)
-{
-	unsigned int prefixLen = strlen(prefix);
-	unsigned int strLen = strlen(str);
-
-	if (prefixLen >= strLen)
-	{
-		str[0] = '\0';
-		return;
-	}
-
-	if ((str[prefixLen] == '\\') || (str[prefixLen] == '/'))
-	{
-		++prefixLen;
-	}
-
-	unsigned int oldIdx = prefixLen, newIdx = 0;
-	for (; oldIdx < strLen; ++oldIdx, ++newIdx)
-	{
-		str[newIdx] = str[oldIdx];
-	}
-
-	str[newIdx] = '\0';
-}
-
-static WaykCseBundleStatus WaykCseBundle_ExtractRecursive(
-	WaykCseBundle* ctx,
-	const char* targetFolder,
-	const char* sourceFolder)
-{
-	WaykCseBundleStatus status = WAYK_CSE_BUNDLE_OK;
-
-	// Make directory structure
-	for (int fileIdx = 0; fileIdx < LzArchive_Count(ctx->archiveHandle); ++fileIdx)
-	{
-		if (LzArchive_IsDir(ctx->archiveHandle, fileIdx))
-		{
-			char fileName[LZ_MAX_PATH];
-			fileName[0] = '\0';
-			LzArchive_GetFileName(ctx->archiveHandle, fileIdx, fileName, sizeof(fileName));
-
-			if (!IsStringPrefixedWith(fileName, sourceFolder))
-			{
-				continue;
-			}
-
-			TrimPrefix(fileName, sourceFolder);
-
-			char outputPath[LZ_MAX_PATH];
-			outputPath[0] = '\0';
-			LzPathCchAppend(outputPath, sizeof(outputPath), targetFolder);
-			LzPathCchAppend(outputPath, sizeof(outputPath), fileName);
-
-			if (!LzFile_Exists(outputPath))
-			{
-				if (LzMkDir(outputPath,0) < 0)
-				{
-					status = WAYK_CSE_BUNDLE_FS_ERROR;
-					goto cleanup;
-				}
-			}
-		}
-	}
-
-	// Extract files
-	for (int fileIdx = 0; fileIdx < LzArchive_Count(ctx->archiveHandle); ++fileIdx)
-	{
-		if (!LzArchive_IsDir(ctx->archiveHandle, fileIdx))
-		{
-			char fileName[LZ_MAX_PATH];
-			fileName[0] = '\0';
-			LzArchive_GetFileName(ctx->archiveHandle, fileIdx, fileName, sizeof(fileName));
-
-			if (!IsStringPrefixedWith(fileName, sourceFolder))
-			{
-				continue;
-			}
-
-			TrimPrefix(fileName, sourceFolder);
-
-			char outputPath[LZ_MAX_PATH];
-			outputPath[0] = '\0';
-			LzPathCchAppend(outputPath, sizeof(outputPath), targetFolder);
-			LzPathCchAppend(outputPath, sizeof(outputPath), fileName);
-
-			if (LzArchive_ExtractFile(ctx->archiveHandle, fileIdx, 0, outputPath) != LZ_OK)
-			{
-				fprintf(stderr, "Failed to extract %s from the bundle\n", fileName);
-				status = WAYK_CSE_BUNDLE_MISSING_PACKAGE;
-				goto cleanup;
-			}
-		}
-	}
-
-cleanup:
-	return status;
-}
-
-WaykCseBundleStatus WaykCseBundle_ExtractPowerShellModule(
+WaykCseBundleStatus WaykCseBundle_ExtractOptionsJson(
 	WaykCseBundle* ctx,
 	const char* targetFolder)
 {
-	char outputPath[LZ_MAX_PATH];
-	outputPath[0] = '\0';
-	LzPathCchAppend(outputPath, sizeof(outputPath), targetFolder);
-	LzPathCchAppend(outputPath, sizeof(outputPath), POWER_SHELL_MODULE_DIR_NAME);
-
-	if (!LzFile_Exists(outputPath) && LzMkDir(outputPath, 0) < 0)
-	{
-		return WAYK_CSE_BUNDLE_FS_ERROR;
-	}
-
-	return WaykCseBundle_ExtractRecursive(ctx, outputPath, "PowerShell");
-}
-
-WaykCseBundleStatus WaykCseBundle_ExtractWaykBinaries(
-	WaykCseBundle* ctx,
-	const char* targetFolder,
-	WaykBinariesBitness bitness)
-{
-	const char* sourceFolder = (bitness == WAYK_BINARIES_BITNESS_X86)
-		? "Wayk_x86"
-		: "Wayk_x64";
-
-	return WaykCseBundle_ExtractRecursive(ctx, targetFolder, sourceFolder);
+	return WaykCseBundle_ExtractSingleFile(ctx, targetFolder, JSON_OPTIONS_FILE_NAME);
 }

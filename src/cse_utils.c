@@ -1,8 +1,7 @@
 #include <cse/cse_utils.h>
-
 #include <windows.h>
-
 #include <lizard/lizard.h>
+#include <resource.h>
 
 #define MAX_COMMAND_LINE 8192
 
@@ -144,23 +143,8 @@ char* GetWaykCseOption(int key)
 	return _strdup(optionValue);
 }
 
-char* GetWaykCsePathOption(int key)
-{
-	char* expandedPath = 0;
-
-	char* originalOption = GetWaykCseOption(key);
-	if (!originalOption)
-	{
-		goto cleanup;
-	}
-
-	expandedPath = ExpandEnvironmentVariables(originalOption);
-
-cleanup:
-	if (originalOption)
-		free(originalOption);
-
-	return expandedPath;
+char* GetProductName() {
+	return GetWaykCseOption(IDS_WAYK_PRODUCT_NAME);
 }
 
 int GetPowerShellPath(char* pathBuffer, int pathBufferSize)
