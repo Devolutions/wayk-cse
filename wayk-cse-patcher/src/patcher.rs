@@ -1,8 +1,8 @@
 use std::{
     env,
-    fs::{self, File},
-    io::{self, Read, Write},
+    fs::File,
     path::Path,
+    io
 };
 
 use clap::{App as ArgParser, Arg, ArgMatches};
@@ -12,9 +12,8 @@ use anyhow::Context;
 use tempfile::tempdir;
 
 use crate::{
-    artifacts_bundle::ArtifactsBundle,
     branding::{extract_branding_icon, get_product_name},
-    bundle::{Bitness, BundlePackageType, BundlePacker},
+    bundle::{BundlePackageType, BundlePacker},
     cse_options::CseOptions,
     download::{download_latest_msi, download_latest_zip},
     resource_patcher::ResourcePatcher,
@@ -73,7 +72,7 @@ impl WaykCsePatcher {
         for bitness in &options.install_options().supported_architectures {
             info!("Downloading artifacts zip for {} architecture...", bitness);
             let artifacts_zip_path = working_dir.path().join(format!("Wayk_{}.zip", bitness));
-            download_latest_zip(&artifacts_zip_path, bitness).with_context(|| {
+            download_latest_zip(&artifacts_zip_path, *bitness).with_context(|| {
                 format!(
                     "Failed to download WaykNow executable for {} architecture",
                     bitness
@@ -81,7 +80,7 @@ impl WaykCsePatcher {
             })?;
             bundle.add_bundle_package(
                 BundlePackageType::WaykBinaries {
-                    bitness: bitness.clone(),
+                    bitness: *bitness,
                 },
                 &artifacts_zip_path,
             );
@@ -91,12 +90,12 @@ impl WaykCsePatcher {
                 let msi_path = working_dir
                     .path()
                     .join(format!("Installer_{}.msi", bitness));
-                download_latest_msi(&msi_path, bitness).with_context(|| {
+                download_latest_msi(&msi_path, *bitness).with_context(|| {
                     format!("Failed to download MSI for {} architecture", bitness)
                 })?;
                 bundle.add_bundle_package(
                     BundlePackageType::InstallationMsi {
-                        bitness: bitness.clone(),
+                        bitness: *bitness,
                     },
                     &msi_path,
                 );

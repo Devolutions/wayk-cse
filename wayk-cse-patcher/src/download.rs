@@ -34,7 +34,7 @@ impl Error {
 pub type DownloadResult<T> = Result<T, Error>;
 
 fn construct_package_url(
-    bitness: &Bitness,
+    bitness: Bitness,
     version: NowVersion,
     extension: &str,
 ) -> DownloadResult<Url> {
@@ -48,11 +48,11 @@ fn construct_package_url(
     Ok(url)
 }
 
-fn construct_msi_url(bitness: &Bitness, version: NowVersion) -> DownloadResult<Url> {
+fn construct_msi_url(bitness: Bitness, version: NowVersion) -> DownloadResult<Url> {
     construct_package_url(bitness, version, "msi")
 }
 
-fn construct_zip_url(bitness: &Bitness, version: NowVersion) -> DownloadResult<Url> {
+fn construct_zip_url(bitness: Bitness, version: NowVersion) -> DownloadResult<Url> {
     construct_package_url(bitness, version, "zip")
 }
 
@@ -67,13 +67,13 @@ fn download_msi(destination: &Path, url: &Url) -> DownloadResult<()> {
     Ok(())
 }
 
-pub fn download_latest_zip(destination: &Path, bitness: &Bitness) -> DownloadResult<()> {
+pub fn download_latest_zip(destination: &Path, bitness: Bitness) -> DownloadResult<()> {
     let version = get_remote_version()?;
     let url = construct_zip_url(bitness, version)?;
     download_msi(destination, &url)
 }
 
-pub fn download_latest_msi(destination: &Path, bitness: &Bitness) -> DownloadResult<()> {
+pub fn download_latest_msi(destination: &Path, bitness: Bitness) -> DownloadResult<()> {
     let version = get_remote_version()?;
     let url = construct_msi_url(bitness, version)?;
     download_msi(destination, &url)
@@ -124,12 +124,12 @@ mod tests {
     #[test]
     #[ignore]
     fn test_download() {
-        download_latest_msi(Path::new("D:\\wn.msi"), &Bitness::X64).unwrap();
+        download_latest_msi(Path::new("D:\\wn.msi"), Bitness::X64).unwrap();
     }
 
     #[test]
     #[ignore]
     fn test_download_zip() {
-        download_latest_zip(Path::new("D:\\wn.zip"), &Bitness::X86).unwrap();
+        download_latest_zip(Path::new("D:\\wn.zip"), Bitness::X86).unwrap();
     }
 }
