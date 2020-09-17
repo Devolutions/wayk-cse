@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdio.h>
 
 #include <lizard/LzJson.h>
 
@@ -15,7 +16,7 @@ struct wayk_now_config_option
 
 typedef struct wayk_now_config_option WaykNowConfigOption;
 
-static WaykNowConfigOption* WaykNowConfigOption_Append(WaykNowConfigOption* prev, char* key, char* value)
+static WaykNowConfigOption* WaykNowConfigOption_Append(WaykNowConfigOption* prev, const char* key, const char* value)
 {
 	WaykNowConfigOption* node = calloc(1, sizeof(WaykNowConfigOption));
 	if (!node)
@@ -55,6 +56,16 @@ error:
 	return 0;
 }
 
+void WaykNowConfigOption_FreeRecursive(WaykNowConfigOption* ctx)
+{
+	if (ctx->next)
+	{
+		WaykNowConfigOption_FreeRecursive(ctx->next);
+	}
+	free(ctx->key);
+	free(ctx->value);
+}
+
 struct cse_options
 {
 	JSON_Value* jsonRoot;
@@ -62,6 +73,7 @@ struct cse_options
 	bool waykPsModuleImportRequired;
 	char* enrollmentUrl;
 	char* enrollmentToken;
+	WaykNowConfigOption* waykOptions;
 };
 
 static char* ToSnakeCase(const char* str)
@@ -127,6 +139,10 @@ void CseOption_Free(CseOptions* ctx)
 	{
 		free(ctx->enrollmentUrl);
 	}
+	if (ctx->waykOptions)
+	{
+		WaykNowConfigOption_FreeRecursive(ctx->waykOptions);
+	}
 
 	free(ctx);
 }
@@ -180,7 +196,86 @@ CseOptionsResult CseOptions_Load(CseOptions* ctx, const char* path)
 		}
 	}
 
-	// TODO: MSI options generation
+	JSON_Object* waykOptions = lz_json_object_get_object(root, "config");
+	WaykNowConfigOption* optionsHead = 0;
+	WaykNowConfigOption* optionsTail = 0;
+	if (waykOptions)
+	{
+		for (int i = 0; i < lz_json_object_get_count(waykOptions); ++i)
+		{
+			JSON_Value* currentValue = lz_json_object_get_value_at(waykOptions, i);
+			switch (lz_json_value_get_type(currentValue))
+			{
+				case JSONString:
+				{
+					WaykNowConfigOption* newTail = WaykNowConfigOption_Append(
+						optionsTail,
+						lz_json_object_get_name(waykOptions, i),
+						lz_json_value_get_string(currentValue));
+
+					if (!newTail)
+					{
+						result = CSE_OPTIONS_NOMEM;
+						goto error;
+					}
+					optionsTail = newTail;
+					break;
+				}
+				case JSONBoolean:
+				{
+					const char* value = lz_json_value_get_boolean(currentValue) ? "true" : "false";
+
+					WaykNowConfigOption* newTail = WaykNowConfigOption_Append(
+						optionsTail,
+						lz_json_object_get_name(waykOptions, i),
+						value);
+
+					if (!newTail)
+					{
+						result = CSE_OPTIONS_NOMEM;
+						goto error;
+					}
+					optionsTail = newTail;
+					break;
+				}
+				case JSONNumber:
+				{
+					char* numberBuffer = malloc(64);
+					if (!numberBuffer)
+					{
+						result = CSE_OPTIONS_NOMEM;
+						goto error;
+					}
+					sprintf_s(
+						numberBuffer,
+						64,
+						"%d",
+						(int)lz_json_value_get_number(currentValue));
+					WaykNowConfigOption* newTail = WaykNowConfigOption_Append(
+						optionsTail,
+						lz_json_object_get_name(waykOptions, i),
+						numberBuffer);
+					free(numberBuffer);
+					if (!newTail)
+					{
+						result = CSE_OPTIONS_NOMEM;
+						goto error;
+					}
+					optionsTail = newTail;
+					break;
+				}
+				default:{
+					result = CSE_OPTIONS_INVALID_JSON;
+					goto error;
+				}
+			}
+
+			if (!optionsHead)
+			{
+				optionsHead = optionsTail;
+			}
+		}
+	}
 
 	return CSE_OPTIONS_OK;
 
@@ -189,13 +284,63 @@ error:
 	{
 		lz_json_value_free(rootValue);
 	}
+	if (optionsHead)
+	{
+		WaykNowConfigOption_FreeRecursive(optionsHead);
+	}
 	return result;
 }
 
 
 char* CseOptions_GenerateAdditionalMsiOptions(CseOptions* ctx)
 {
-	// TODO: Not implemented yet
+	int bufferSize = 256;
+	char* cliOptions = malloc(bufferSize);
+	cliOptions[0] = '\0';
+
+	WaykNowConfigOption* option = ctx->waykOptions;
+
+	while (option)
+	{
+		char* msiOption = ToSnakeCase(option->key);
+		if (!msiOption)
+		{
+			goto error;
+		}
+
+		unsigned int prevSize = strlen(cliOptions);
+		unsigned int result = 0;
+		do
+		{
+			result = sprintf_s(
+				cliOptions + prevSize,
+				bufferSize - prevSize,
+				" %s=\"%s\"",
+				msiOption,
+				option->value);
+			if (result < 0)
+			{
+				char* newBlock = realloc(cliOptions, bufferSize * 2);
+				if (!newBlock)
+				{
+					goto error;
+				}
+				cliOptions = newBlock;
+				bufferSize *= 2;
+			}
+
+		} while (result < 0);
+
+		option = option->next;
+	}
+
+	return cliOptions;
+
+error:
+	if (cliOptions)
+	{
+		free(cliOptions);
+	}
 	return 0;
 }
 
