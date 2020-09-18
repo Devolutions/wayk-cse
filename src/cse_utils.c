@@ -284,13 +284,25 @@ int RunWaykNowInitScript(const char* waykModulePath, const char* initScriptPath)
 
 	char powerShellCommand[LZ_MAX_PATH];
 
-	bytesWritten = snprintf(
-		powerShellCommand,
-		sizeof(powerShellCommand),
-		"Import-Module -Name '%s'; .'%s'",
-		waykModulePath,
-		initScriptPath
-	);
+	if (waykModulePath)
+	{
+		bytesWritten = snprintf(
+			powerShellCommand,
+			sizeof(powerShellCommand),
+			"Import-Module -Name '%s'; .'%s'",
+			waykModulePath,
+			initScriptPath
+		);
+	}
+	else
+	{
+		bytesWritten = snprintf(
+			powerShellCommand,
+			sizeof(powerShellCommand),
+			".'%s'",
+			initScriptPath
+		);
+	}
 
 	if (bytesWritten < 0 || bytesWritten >= sizeof(powerShellCommand))
 	{
@@ -328,4 +340,9 @@ int RmDirRecursively(const char* path)
 
 cleanup:
 	return result;
+}
+
+const char* GetDefaultWaykNowModulePath()
+{
+	return "C:/Program Files/Devolutions/Wayk Now";
 }

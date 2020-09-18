@@ -13,6 +13,7 @@ int RunPowerShellCommand(const char* command);
 int RunCmdCommand(const char* command);
 
 int RunWaykNowInitScript(const char* waykModulePath, const char* initScriptPath);
+const char* GetDefaultWaykNowModulePath();
 
 int RmDirRecursively(const char* path);
 
