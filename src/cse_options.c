@@ -116,11 +116,11 @@ CseOptions* CseOptions_New()
 	return options;
 
 error:
-	CseOption_Free(options);
+	CseOptions_Free(options);
 	return 0;
 }
 
-void CseOption_Free(CseOptions* ctx)
+void CseOptions_Free(CseOptions* ctx)
 {
 	if (!ctx)
 	{
@@ -147,10 +147,9 @@ void CseOption_Free(CseOptions* ctx)
 	free(ctx);
 }
 
-CseOptionsResult CseOptions_Load(CseOptions* ctx, const char* path)
+static CseOptionsResult CseOptions_Process(CseOptions* ctx, JSON_Value* rootValue)
 {
 	CseOptionsResult result = CSE_OPTIONS_OK;
-	JSON_Value* rootValue = lz_json_parse_file(path);
 	JSON_Object* root = lz_json_value_get_object(rootValue);
 	if (!root)
 	{
@@ -275,6 +274,11 @@ CseOptionsResult CseOptions_Load(CseOptions* ctx, const char* path)
 				optionsHead = optionsTail;
 			}
 		}
+
+		if (optionsHead)
+		{
+			ctx->waykOptions = optionsHead;
+		}
 	}
 
 	return CSE_OPTIONS_OK;
@@ -289,6 +293,28 @@ error:
 		WaykNowConfigOption_FreeRecursive(optionsHead);
 	}
 	return result;
+}
+
+CseOptionsResult CseOptions_LoadFromFile(CseOptions* ctx, const char* path)
+{
+	JSON_Value* rootValue = lz_json_parse_file(path);
+	if (!rootValue)
+	{
+		return CSE_OPTIONS_INVALID_JSON;
+	}
+
+	return CseOptions_Process(ctx, rootValue);
+}
+
+CseOptionsResult CseOptions_LoadFromString(CseOptions* ctx, const char* json)
+{
+	JSON_Value* rootValue = lz_json_parse_string(json);
+	if (!rootValue)
+	{
+		return CSE_OPTIONS_INVALID_JSON;
+	}
+
+	return CseOptions_Process(ctx, rootValue);
 }
 
 
@@ -315,7 +341,7 @@ char* CseOptions_GenerateAdditionalMsiOptions(CseOptions* ctx)
 			result = sprintf_s(
 				cliOptions + prevSize,
 				bufferSize - prevSize,
-				" %s=\"%s\"",
+				" CONFIG_%s=\"%s\"",
 				msiOption,
 				option->value);
 			if (result < 0)

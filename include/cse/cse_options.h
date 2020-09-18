@@ -13,9 +13,10 @@ typedef enum
 } CseOptionsResult;
 
 CseOptions* CseOptions_New();
-void CseOption_Free(CseOptions* ctx);
+void CseOptions_Free(CseOptions* ctx);
 
-CseOptionsResult CseOptions_Load(CseOptions* ctx, const char* path);
+CseOptionsResult CseOptions_LoadFromFile(CseOptions* ctx, const char* path);
+CseOptionsResult CseOptions_LoadFromString(CseOptions* ctx, const char* json);
 
 // Configuration
 char* CseOptions_GenerateAdditionalMsiOptions(CseOptions* ctx);

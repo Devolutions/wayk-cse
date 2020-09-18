@@ -139,4 +139,8 @@ add_executable(${MODULE_NAME}-test-env-expand tests/env_expand.c)
 target_link_libraries(${MODULE_NAME}-test-env-expand PUBLIC ${MODULE_NAME}-lib)
 add_test(${MODULE_NAME}-test-env-expand ${MODULE_NAME}-test-env-expand)
 
+add_executable(${MODULE_NAME}-test-cse-options tests/cse_options.c)
+target_link_libraries(${MODULE_NAME}-test-cse-options PUBLIC ${MODULE_NAME}-lib)
+add_test(${MODULE_NAME}-test-cse-options ${MODULE_NAME}-test-cse-options)
+
 set_target_properties(${MODULE_NAME} PROPERTIES OUTPUT_NAME "${OUTPUT_NAME}")
