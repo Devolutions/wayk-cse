@@ -5,6 +5,7 @@
 
 #include <cse/cse_utils.h>
 #include <cse/bundle.h>
+#include <cse/log.h>
 
 #define MAX_TEXT_MESSAGE_SIZE 1024
 
@@ -276,7 +277,7 @@ void StartServiceLauncher()
 	}
 }
 
-int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, WCHAR* lpCmdLine, int nCmdShow)
+int main(int argc, char** argv)
 {
 	int status;
 
@@ -305,6 +306,15 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, WCHAR* lpCmdLi
 	char* enableUnattendedServiceOpt = NULL;
 	char* enableAutoCleanOpt = NULL;
 	char* productName = NULL;
+
+#ifdef NDEBUG
+	CseLog_Init(stderr, CSE_LOG_LEVEL_INFO);
+#else
+	CseLog_Init(stderr, CSE_LOG_LEVEL_DEBUG);
+#endif
+
+	CSE_LOG_WARN("%s", "hello");
+	exit(1);
 
 	wow64 = LzIsWow64();
 	waykBinariesBitness = wow64 ? WAYK_BINARIES_BITNESS_X64 : WAYK_BINARIES_BITNESS_X86;

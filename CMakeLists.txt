@@ -99,11 +99,13 @@ source_group("Resources" FILES ${${MODULE_PREFIX}_RESOURCES})
 set(${MODULE_PREFIX}_LIB_SOURCES
 	src/cse_utils.c
 	src/bundle.c
-	src/cse_options.c)
+	src/cse_options.c
+	src/log.c)
 set(${MODULE_PREFIX}_LIB_HEADERS
 	include/cse/cse_utils.h
 	include/cse/bundle.h
-	include/cse/cse_options.h)
+	include/cse/cse_options.h
+	include/cse/log.h)
 
 set(${MODULE_PREFIX}_SOURCES src/main.c)
 
@@ -130,7 +132,7 @@ target_include_directories(
 	"${CMAKE_CURRENT_LIST_DIR}/include"
 	"${CMAKE_CURRENT_BINARY_DIR}")
 
-add_executable(${MODULE_NAME} WIN32 ${${MODULE_PREFIX}_SOURCES} ${${MODULE_PREFIX}_RESOURCES})
+add_executable(${MODULE_NAME} ${${MODULE_PREFIX}_SOURCES} ${${MODULE_PREFIX}_RESOURCES})
 target_link_libraries(${MODULE_NAME} PRIVATE ${MODULE_NAME}-lib)
 
 enable_testing()
