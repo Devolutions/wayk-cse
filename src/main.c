@@ -243,6 +243,9 @@ int main(int argc, char** argv)
 	// TODO: make MSI_options;
 	// TODO: execute MSI;
 
+	//WaitForSingleObject(processInfo.hProcess, INFINITE);
+
+
 	waykNowInstallationDir = GetWaykInstallationDir();
 	if (!waykNowInstallationDir)
 	{
@@ -273,8 +276,6 @@ int main(int argc, char** argv)
 			goto cleanup;
 		}
 	}
-
-	WaitForSingleObject(processInfo.hProcess, INFINITE);
 
 	status = RmDirRecursively(extractionPath);
 

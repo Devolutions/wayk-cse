@@ -100,12 +100,14 @@ set(${MODULE_PREFIX}_LIB_SOURCES
 	src/cse_utils.c
 	src/bundle.c
 	src/cse_options.c
-	src/log.c)
+	src/log.c
+	src/install.c)
 set(${MODULE_PREFIX}_LIB_HEADERS
 	include/cse/cse_utils.h
 	include/cse/bundle.h
 	include/cse/cse_options.h
-	include/cse/log.h)
+	include/cse/log.h
+	include/cse/install.h)
 
 set(${MODULE_PREFIX}_SOURCES src/main.c)
 
