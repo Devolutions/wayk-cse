@@ -42,4 +42,11 @@ WaykCseBundleStatus WaykCseBundle_ExtractOptionsJson(
 	WaykCseBundle* ctx,
 	const char* targetFolder);
 
+const char* GetBrandingFileName();
+const char* GetPowerShellInitScriptFileName();
+const char* GetJsonOptionsFileName();
+const char* GetInstallerFileName(WaykBinariesBitness bitness);
+const char* GetWaykNowBinaryFileName(WaykBinariesBitness bitness);
+
+
 #endif //WAYKCSE_BUNDLE_H

@@ -6,6 +6,7 @@
 #include <cse/cse_utils.h>
 #include <cse/bundle.h>
 #include <cse/log.h>
+#include <cse/cse_options.h>
 
 #define MAX_TEXT_MESSAGE_SIZE 1024
 
@@ -23,12 +24,12 @@ typedef struct
 {
 	bool hasBranding;
 	bool hasPowerShellInitScript;
+	bool hasEmbeddedInstaller;
 } BundleOptionalContentInfo;
 
 
 static int ExtractBundle(
 	const char* extractionPath,
-	const char* waykDataPath,
 	WaykBinariesBitness bitness,
 	BundleOptionalContentInfo* contentInfo)
 {
@@ -39,29 +40,33 @@ static int ExtractBundle(
 
 	WaykCseBundle* bundle = WaykCseBundle_Open();
 
-	/*
-	if (WaykCseBundle_ExtractWaykBinaries(bundle, extractionPath, bitness) != WAYK_CSE_BUNDLE_OK)
+	if (WaykCseBundle_ExtractOptionsJson(bundle, extractionPath) != WAYK_CSE_BUNDLE_OK)
 	{
-		// Hard failure; Nothing to launch.
+		CSE_LOG_ERROR("Options json is not found inside CSE bundle");
+		status = LZ_ERROR_NOT_FOUND;
 		goto cleanup;
 	}
-	*/
-	if (WaykCseBundle_ExtractBrandingZip(bundle, waykDataPath) == WAYK_CSE_BUNDLE_OK)
+
+	if (WaykCseBundle_ExtractWaykNowExecutable(bundle, bitness, extractionPath) != WAYK_CSE_BUNDLE_OK)
+	{
+		CSE_LOG_ERROR("Wayk Now binary with required bitness is not found inside CSE bundle");
+		status = LZ_ERROR_NOT_FOUND;
+		goto cleanup;
+	}
+
+	if (WaykCseBundle_ExtractWaykNowInstaller(bundle, bitness, extractionPath) != WAYK_CSE_BUNDLE_OK)
+	{
+		contentInfo->hasEmbeddedInstaller = true;
+	}
+
+	if (WaykCseBundle_ExtractBrandingZip(bundle, extractionPath) == WAYK_CSE_BUNDLE_OK)
 	{
 		contentInfo->hasBranding = true;
 	}
 
-	// Extract PS module only if configuration with init script is needed
 	if (WaykCseBundle_ExtractPowerShellInitScript(bundle, extractionPath) == WAYK_CSE_BUNDLE_OK)
 	{
-		/*
-		if (WaykCseBundle_ExtractPowerShellModule(bundle, extractionPath) != WAYK_CSE_BUNDLE_OK)
-		{
-			goto cleanup;
-		}
-
 		contentInfo->hasPowerShellInitScript = true;
-		 */
 	}
 
 	status = LZ_OK;
@@ -73,239 +78,81 @@ cleanup:
 	return status;
 }
 
-void FormatServiceName(char* buffer, unsigned int size, const char* productName)
+char* GetWaykInstallationDir()
 {
-	snprintf(buffer, size, "%s CSE Service", productName);
-}
-
-static int StartUnattendedService(
-	const char* serviceBinary,
-	const char* waykSystemFolderPath,
-	const char* productName)
-{
-	int result;
-
-	HANDLE cseInstanceMutex = 0;
-	HANDLE serviceStartedEvent = 0;
-	char text[MAX_TEXT_MESSAGE_SIZE];
-	char serviceName[MAX_TEXT_MESSAGE_SIZE];
-
-	cseInstanceMutex = OpenMutexW(MUTEX_ALL_ACCESS, false, CSE_INSTANCE_MUTEX_NAME_W);
-	if (!cseInstanceMutex)
+	wchar_t* installPathW = 0;
+	char* installPath = 0;
+	DWORD installPathSize = LZ_MAX_PATH;
+	LSTATUS keyOpenStatus = ERROR_PATH_NOT_FOUND;
+	HKEY regKey;
+	REGSAM regKeyAccess = KEY_READ;
+	if (LzIsWow64())
 	{
-		result = LZ_ERROR_UNEXPECTED;
+		regKeyAccess |= KEY_WOW64_64KEY;
+	}
+
+	keyOpenStatus = RegOpenKeyExW(
+		HKEY_LOCAL_MACHINE,
+		L"SOFTWARE\\Wayk\\WaykNow",
+		0,
+		regKeyAccess,
+		&regKey);
+	if (keyOpenStatus != ERROR_SUCCESS)
+	{
+		CSE_LOG_WARN("Failed to open Wayk Now registry key");
 		goto cleanup;
 	}
 
-	serviceStartedEvent = OpenEventW(EVENT_MODIFY_STATE, false, CSE_SERVICE_LAUNCHER_READY_EVENT_W);
-	if (!serviceStartedEvent)
+	installPathW = malloc(LZ_MAX_PATH);
+	if (!installPathW)
 	{
-		result = LZ_ERROR_UNEXPECTED;
-		goto cleanup;
+		CSE_LOG_WARN("Failed to allocate InstallPath buffer");
 	}
-
-	result = LzIsServiceLaunched("WaykNowService");
-	if (result == FALSE || result == LZ_ERROR_OPEN_SERVICE)
+	if (RegQueryValueExW(
+		regKey,
+		L"InstallDir",
+		0,
+		0,
+		(LPBYTE)installPathW,
+		&installPathSize) != ERROR_SUCCESS)
 	{
-		result = LZ_OK;
-	}
-	else if (result == TRUE)
-	{
-		snprintf(
-			text,
-			MAX_TEXT_MESSAGE_SIZE,
-			"%s service can't be launched alongside with Wayk Unattended Service",
-			productName);
-
-		LzMessageBox(NULL,
-					 text,
-					 productName,
-					 MB_OK | MB_ICONERROR
-		);
-
-		result = LZ_ERROR_CONFLICTING_SERVICE;
-		goto cleanup;
+		CSE_LOG_WARN("Failed to read InstallPath registry value");
 	}
 	else
 	{
-		// Keep LzIsServiceLaunched returned error in result
-		goto cleanup;
+		installPath = LzUnicode_UTF16toUTF8_dup(installPathW);
+		CSE_LOG_DEBUG("Wayk Now installation dir: %s", installPath);
 	}
-
-
-	FormatServiceName(serviceName, sizeof(serviceName), productName);
-
-
-	result = LzInstallService(serviceName, serviceBinary);
-	if (result != LZ_OK)
-		goto cleanup;
-
-	const char* args[2];
-	args[0] = "--wayk-system-path";
-	args[1] = waykSystemFolderPath;
-
-	result = LzStartService(serviceName, 2, args);
-	if (result != LZ_OK)
-		goto cleanup;
-
-	// Signal that service indeed started
-	SetEvent(serviceStartedEvent);
-
-	// Wait until main app ends
-	WaitForSingleObjectEx(cseInstanceMutex, INFINITE, false);
-
-	// Stop service return result is ignored -- we need to remove
-	// service even if stop has been failed (service will be marked for removal)
-	LzStopService(serviceName);
-
-	result = LzRemoveService(serviceName);
-	if (result != LZ_OK)
-		goto cleanup;
-
-	result = LZ_OK;
 
 cleanup:
-	if (cseInstanceMutex)
-		CloseHandle(cseInstanceMutex);
-	if (serviceStartedEvent)
-		CloseHandle(serviceStartedEvent);
-
-	return result;
-}
-
-
-int CleanCseArtifacts(const char* extractionPath, const char* dataPath, const char* systemPath)
-{
-	int result = LZ_OK;
-
-	// Try to continue removal process even if one of remove operations was failed
-
-	if (dataPath != NULL)
+	if (keyOpenStatus == ERROR_SUCCESS)
 	{
-		if (RmDirRecursively(dataPath) != LZ_OK)
-			result = LZ_ERROR_FAIL;
+		RegCloseKey(regKey);
+	}
+	if (installPathW)
+	{
+		free(installPathW);
 	}
 
-	if (systemPath != NULL)
-	{
-		if (RmDirRecursively(systemPath) != LZ_OK)
-			result = LZ_ERROR_FAIL;
-	}
-
-	// dataPath and systemPath most likely will be located inside extractionPath, so
-	// we will remove extractionPath last
-	if (extractionPath != NULL)
-	{
-		if (RmDirRecursively(extractionPath) != LZ_OK)
-			result = LZ_ERROR_FAIL;
-	}
-
-	return result;
-}
-
-int CseServiceLauncherMain()
-{
-	int result = LZ_OK;
-	bool enableAutoClean = false;
-
-	char unattendedServicePath[LZ_MAX_PATH];
-
-	char* extractionPath = NULL;
-	char* systemPath = NULL;
-	char* dataPath = NULL;
-	char* enableAutoCleanOpt = NULL;
-	char* productName = NULL;
-
-	extractionPath = ""; //GetWaykCsePathOption(IDS_WAYK_EXTRACTION_PATH);
-	systemPath = ""; //GetWaykCsePathOption(IDS_WAYK_OPTION_SYSTEM_PATH);
-	dataPath = ""; //GetWaykCsePathOption(IDS_WAYK_OPTION_DATA_PATH);
-	productName = GetProductName();
-	enableAutoCleanOpt = ""; //GetWaykCseOption(IDS_WAYK_OPTION_AUTO_CLEAN);
-
-	enableAutoClean = (strcmp(enableAutoCleanOpt, "1") == 0);
-
-	unattendedServicePath[0] = '\0';
-	LzPathCchAppend(unattendedServicePath, sizeof(unattendedServicePath), extractionPath);
-	LzPathCchAppend(unattendedServicePath, sizeof(unattendedServicePath), "NowService.exe");
-
-	result = StartUnattendedService(unattendedServicePath, systemPath, productName);
-
-	if (enableAutoClean)
-		CleanCseArtifacts(extractionPath, dataPath, systemPath);
-
-cleanup:
-	if (extractionPath)
-		free(extractionPath);
-	if (systemPath)
-		free(systemPath);
-	if (dataPath)
-		free(dataPath);
-	if (enableAutoCleanOpt)
-		free(enableAutoCleanOpt);
-	if (productName)
-		free(productName);
-
-	return result;
-}
-
-void StartServiceLauncher()
-{
-	char cwd[LZ_MAX_PATH];
-	char csePath[LZ_MAX_PATH];
-
-	SHELLEXECUTEINFOA shellExecuteInfo;
-
-	ZeroMemory(&shellExecuteInfo, sizeof(SHELLEXECUTEINFOA));
-
-	LzEnv_GetCwd(cwd, LZ_MAX_PATH);
-	LzGetModuleFileName(NULL, csePath, sizeof(csePath));
-
-	shellExecuteInfo.cbSize = sizeof(SHELLEXECUTEINFOA);
-	shellExecuteInfo.lpVerb = "runas";
-	shellExecuteInfo.lpFile = csePath;
-	shellExecuteInfo.lpDirectory = cwd;
-	shellExecuteInfo.lpParameters = "--cse-start-service";
-
-	if (LzShellExecuteEx(&shellExecuteInfo) != TRUE)
-	{
-		LzMessageBox(
-			NULL,
-			"Failed to start unattended service. Functionality will be limited.",
-			"Remote control service launcher",
-			MB_OK | MB_ICONWARNING
-		);
-	}
+	return installPath;
 }
 
 int main(int argc, char** argv)
 {
 	int status;
-
 	BOOL wow64;
 	WaykBinariesBitness waykBinariesBitness;
-	bool enableUnattendedService = false;
-	bool enableAutoClean = false;
-	bool unattendedServiceActive = false;
 	BundleOptionalContentInfo bundleOptionalContentInfo;
-	STARTUPINFOA startupInfo;
 	PROCESS_INFORMATION processInfo;
-	char text[2048];
-	char cwd[LZ_MAX_PATH];
-	char psModulePath[LZ_MAX_PATH];
+	char text[MAX_TEXT_MESSAGE_SIZE];
 	char psInitScriptPath[LZ_MAX_PATH];
-	char serviceName[MAX_TEXT_MESSAGE_SIZE];
-
-	void* fsRedir = NULL;
-
-	char* commandLine = NULL;
-	char* extractionPath = NULL;
-	char* dataPath = NULL;
-	char* systemPath = NULL;
-	HANDLE cseStartedMutex = NULL;
-	HANDLE serviceStartedEvent = NULL;
-	char* enableUnattendedServiceOpt = NULL;
-	char* enableAutoCleanOpt = NULL;
-	char* productName = NULL;
+	char extractionPath[LZ_MAX_PATH];
+	char optionsPath[LZ_MAX_PATH];
+	char waykNowBinaryPath[LZ_MAX_PATH];
+	char* productName = 0;
+	char* waykNowInstallationDir = 0;
+	HANDLE cseStartedMutex = 0;
+	CseOptions* cseOptions = 0;
 
 #ifdef NDEBUG
 	CseLog_Init(stderr, CSE_LOG_LEVEL_INFO);
@@ -313,265 +160,131 @@ int main(int argc, char** argv)
 	CseLog_Init(stderr, CSE_LOG_LEVEL_DEBUG);
 #endif
 
-	CSE_LOG_WARN("%s", "hello");
-	exit(1);
-
 	wow64 = LzIsWow64();
 	waykBinariesBitness = wow64 ? WAYK_BINARIES_BITNESS_X64 : WAYK_BINARIES_BITNESS_X86;
 
 	ZeroMemory(&bundleOptionalContentInfo, sizeof(BundleOptionalContentInfo));
 
-	extractionPath = ""; //GetWaykCsePathOption(IDS_WAYK_EXTRACTION_PATH);
-	dataPath = ""; //GetWaykCsePathOption(IDS_WAYK_OPTION_DATA_PATH);
-	systemPath = ""; //GetWaykCsePathOption(IDS_WAYK_OPTION_SYSTEM_PATH);
-	enableUnattendedServiceOpt = ""; //GetWaykCseOption(IDS_WAYK_OPTION_UNATTENDED);
+	if (!IsElevated())
+	{
+		CSE_LOG_WARN(
+			"Cse is running from non-elevated environment, elevation prompt will be presented");
+	}
+
 	productName = GetProductName();
-	enableAutoCleanOpt = ""; //GetWaykCseOption(IDS_WAYK_OPTION_AUTO_CLEAN);
-
-	if (__argc > 1)
-	{
-		if (wcscmp(__wargv[1], L"--cse-start-service") == 0)
-			return CseServiceLauncherMain();
-		if (wcscmp(__wargv[1], L"--cse-clean-artifacts") == 0)
-			return CleanCseArtifacts(extractionPath, dataPath, systemPath);
-	}
-
-
-	cseStartedMutex = CreateMutexW(NULL, true, CSE_INSTANCE_MUTEX_NAME_W);
-	if (!cseStartedMutex || GetLastError() == ERROR_ALREADY_EXISTS)
-	{
-		status = LZ_ERROR_MULTIPLE_CSE_INSTANCES;
-		snprintf(text, sizeof(text), "%s application is already launched", productName);
-		LzMessageBox(NULL, text, productName, MB_OK | MB_ICONERROR);
-		goto cleanup;
-	}
-
-	serviceStartedEvent =
-		CreateEventW(NULL, false, false, CSE_SERVICE_LAUNCHER_READY_EVENT_W);
-
-	if (!extractionPath)
-	{
-		status = LZ_ERROR_NOT_FOUND;
-		goto cleanup;
-	}
-	if (!dataPath)
-	{
-		status = LZ_ERROR_NOT_FOUND;
-		goto cleanup;
-	}
-	if (!systemPath)
-	{
-		status = LZ_ERROR_NOT_FOUND;
-		goto cleanup;
-	}
-	if (!enableUnattendedServiceOpt)
-	{
-		status = LZ_ERROR_NOT_FOUND;
-		goto cleanup;
-	}
 	if (!productName)
 	{
 		status = LZ_ERROR_NOT_FOUND;
 		goto cleanup;
 	}
-	if (!enableAutoCleanOpt)
+
+	cseStartedMutex = CreateMutexW(NULL, true, CSE_INSTANCE_MUTEX_NAME_W);
+	if (!cseStartedMutex || GetLastError() == ERROR_ALREADY_EXISTS)
 	{
-		status = LZ_ERROR_NOT_FOUND;
+		status = LZ_ERROR_MULTIPLE_CSE_INSTANCES;
+		CSE_LOG_ERROR("%s CSE is already launched", productName);
 		goto cleanup;
 	}
 
-	enableUnattendedService = (strcmp(enableUnattendedServiceOpt, "1") == 0);
-	enableAutoClean = (strcmp(enableAutoCleanOpt, "1") == 0);
+	if (LzEnv_GetTempPath(extractionPath, LZ_MAX_PATH) != LZ_OK)
+	{
+		CSE_LOG_ERROR("Failed to get temp path");
+		status = LZ_ERROR_UNEXPECTED;
+		goto cleanup;
+	}
 
+	sprintf_s(text, MAX_TEXT_MESSAGE_SIZE, "%s CSE", productName);
+	if (LzPathCchAppend(extractionPath, LZ_MAX_PATH, text) != LZ_OK)
+	{
+		CSE_LOG_ERROR("Failed to construct temp path for CSE extraction");
+		status = LZ_ERROR_UNEXPECTED;
+		goto cleanup;
+	}
 
 	if (!LzFile_Exists(extractionPath))
 	{
 		if (LzMkPath(extractionPath, 0) != LZ_OK)
 		{
 			status = LZ_ERROR_FILE;
-			LzMessageBox(
-				NULL,
-				"Failed to create wayk extraction directory",
-				productName,
-				MB_OK | MB_ICONERROR);
-			goto cleanup;
-		}
-	}
-
-	LzSetEnv("WAYK_DATA_PATH", dataPath);
-
-	if (!LzFile_Exists(dataPath))
-	{
-		if (LzMkPath(dataPath, 0) != LZ_OK)
-		{
-			status = LZ_ERROR_FILE;
-			LzMessageBox(
-				NULL,
-				"Failed to create wayk data directory",
-				productName,
-				MB_OK | MB_ICONERROR);
-			goto cleanup;
-		}
-	}
-
-	LzSetEnv("WAYK_SYSTEM_PATH", systemPath);
-
-	if (!LzFile_Exists(systemPath))
-	{
-		if (LzMkPath(systemPath, 0) != LZ_OK)
-		{
-			status = LZ_ERROR_FILE;
-			LzMessageBox(
-				NULL,
-				"Failed to create wayk system directory",
-				productName,
-				MB_OK | MB_ICONERROR);
+			CSE_LOG_ERROR("Failed to create %s extraction directory", productName);
 			goto cleanup;
 		}
 	}
 
 	status = ExtractBundle(
 		extractionPath,
-		dataPath,
 		waykBinariesBitness,
 		&bundleOptionalContentInfo);
 
 	if (status != LZ_OK)
 	{
-		LzMessageBox(
-			NULL,
-			"Failed to extract the portable application",
-			productName,
-			MB_OK | MB_ICONERROR
-		);
+		CSE_LOG_ERROR("Failed to extract %s resources", productName);
 		goto cleanup;
 	}
 
-	// Run Power Shell init script before running unattended service
+	cseOptions = CseOptions_New();
+	if (!cseOptions)
+	{
+		status = LZ_ERROR_MEM;
+		goto  cleanup;
+	}
+
+	optionsPath[0] = '\0';
+	LzPathCchAppend(optionsPath, sizeof(optionsPath), extractionPath);
+	LzPathCchAppend(optionsPath, sizeof(optionsPath), GetJsonOptionsFileName());
+	if (CseOptions_LoadFromFile(cseOptions, optionsPath) != CSE_OPTIONS_OK)
+	{
+		CSE_LOG_ERROR("Failed to load JSON options");
+		status = LZ_ERROR_FAIL;
+		goto cleanup;
+	}
+
+
+	// TODO: make MSI_options;
+	// TODO: execute MSI;
+
+	waykNowInstallationDir = GetWaykInstallationDir();
+	if (!waykNowInstallationDir)
+	{
+		CSE_LOG_ERROR("Failed to query %s installation dir", productName);
+		goto cleanup;
+	}
+
+	// Run Power Shell after installation
 	if (bundleOptionalContentInfo.hasPowerShellInitScript)
 	{
-		psModulePath[0] = '\0';
 		psInitScriptPath[0] = '\0';
-		LzPathCchAppend(psModulePath, sizeof(psModulePath), extractionPath);
-		LzPathCchAppend(psInitScriptPath, sizeof(psInitScriptPath), extractionPath);
+		LzPathCchAppend(
+			psInitScriptPath,
+			sizeof(psInitScriptPath),
+			extractionPath);
+		LzPathCchAppend(
+			psInitScriptPath,
+			sizeof(psInitScriptPath),
+			GetPowerShellInitScriptFileName());
 
-		LzPathCchAppend(psModulePath, sizeof(psModulePath), "PowerShell\\Modules\\WaykNow");
-		LzPathCchAppend(psInitScriptPath, sizeof(psInitScriptPath), "init.ps1");
-
-		status = RunWaykNowInitScript(psModulePath, psInitScriptPath);
+		const char* modulePath = CseOptions_WaykNowPsModuleImportRequired(cseOptions)
+			? GetPowerShellModulePath(waykNowInstallationDir)
+			: 0;
+		status = RunWaykNowInitScript(modulePath, psInitScriptPath);
 		if (status != LZ_OK)
 		{
-			LzMessageBox(
-				NULL,
-				"Failed to run initialization script",
-				productName,
-				MB_OK | MB_ICONWARNING
-			);
+			CSE_LOG_ERROR("Failed to run %s initialization script", productName);
+			goto cleanup;
 		}
 	}
-
-
-	LzEnv_GetCwd(cwd, LZ_MAX_PATH);
-
-	if (enableUnattendedService)
-	{
-		FormatServiceName(serviceName, sizeof(serviceName), productName);
-		LzSetEnv("WAYK_UNATTENDED_SERVICE_NAME", serviceName);
-
-		StartServiceLauncher(extractionPath, systemPath, productName);
-
-		// Wait 10 seconds for service to start
-		if (WaitForSingleObjectEx(
-			serviceStartedEvent,
-			START_UNATTENDED_SERVICE_TIMEOUT,
-			false) != WAIT_OBJECT_0)
-		{
-			LzMessageBox(
-				NULL,
-				"Failed to start unattended service. Functionality will be limited.",
-				productName,
-				MB_OK | MB_ICONERROR
-			);
-		}
-		else
-		{
-			unattendedServiceActive = true;
-		}
-	}
-
-	LzEnv_SetCwd(extractionPath);
-
-	commandLine = LzGetCommandLine();
-
-	ZeroMemory(&startupInfo, sizeof(STARTUPINFOA));
-	startupInfo.cb = sizeof(STARTUPINFOA);
-
-	ZeroMemory(&processInfo, sizeof(PROCESS_INFORMATION));
-
-	if (wow64)
-		pfnWow64DisableWow64FsRedirection(&fsRedir);
-
-	if (!LzCreateProcess(
-		"WaykNow.exe",
-		commandLine,
-		NULL,
-		NULL,
-		FALSE,
-		0,
-		0,
-		extractionPath,
-		&startupInfo,
-		&processInfo))
-	{
-		status = LZ_ERROR_FAIL;
-		LzMessageBox(
-			NULL,
-			"Wayk Now failed to launch",
-			"Wayk Now",
-			MB_OK | MB_ICONERROR
-		);
-	}
-
-	if (wow64)
-		pfnWow64RevertWow64FsRedirection(fsRedir);
 
 	WaitForSingleObject(processInfo.hProcess, INFINITE);
 
-	if (enableAutoClean && !unattendedServiceActive)
-	{
-		status = CleanCseArtifacts(extractionPath, dataPath, systemPath);
-	}
-	else
-	{
-		status = LZ_OK;
-	}
+	status = RmDirRecursively(extractionPath);
 
 cleanup:
-	if (processInfo.hThread)
-		CloseHandle(processInfo.hThread);
-	if (processInfo.hProcess)
-		CloseHandle(processInfo.hProcess);
-
-	if (commandLine)
-		free(commandLine);
-
-	if (extractionPath)
-		free(extractionPath);
-	if (dataPath)
-		free(dataPath);
-	if (systemPath)
-		free(systemPath);
-	if (enableUnattendedServiceOpt)
-		free(enableUnattendedServiceOpt);
-	if (enableAutoCleanOpt)
-		free(enableAutoCleanOpt);
 	if (productName)
 		free(productName);
-
 	if (cseStartedMutex)
 		CloseHandle(cseStartedMutex);
-	if (serviceStartedEvent)
-		CloseHandle(serviceStartedEvent);
+	if (cseOptions)
+		CseOptions_Free(cseOptions);
 
 	return status;
 }

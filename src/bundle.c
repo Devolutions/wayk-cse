@@ -1,7 +1,6 @@
 #include <cse/bundle.h>
 
 #include <stdio.h>
-#include <wchar.h>
 #include <lizard/lizard.h>
 
 #include <resource.h>
@@ -41,14 +40,14 @@ WaykCseBundle* WaykCseBundle_Open()
 	resourceInfo = FindResourceW(NULL, MAKEINTRESOURCEW(IDR_WAYK_BUNDLE), (LPCWSTR) RT_RCDATA);
 	if (!resourceInfo)
 	{
-		fwprintf(stderr, L"Can't find wayk bundle resource\n");
+		fwprintf(stderr, L"Can't find Wayk Now bundle resource\n");
 		goto cleanup;
 	}
 
 	resource = LoadResource(0, resourceInfo);
 	if (!resource)
 	{
-		fwprintf(stderr, L"Can't load wayk bundle resource\n");
+		fwprintf(stderr, L"Can't load Wayk Now bundle resource\n");
 		goto cleanup;
 	}
 
@@ -114,7 +113,7 @@ WaykCseBundleStatus WaykCseBundle_ExtractBrandingZip(
 	WaykCseBundle* ctx,
 	const char* targetFolder)
 {
-	return WaykCseBundle_ExtractSingleFile(ctx, targetFolder, BRANDING_FILE_NAME);
+	return WaykCseBundle_ExtractSingleFile(ctx, targetFolder, GetBrandingFileName());
 }
 
 WaykCseBundleStatus WaykCseBundle_ExtractWaykNowExecutable(
@@ -122,11 +121,7 @@ WaykCseBundleStatus WaykCseBundle_ExtractWaykNowExecutable(
 	WaykBinariesBitness bitness,
 	const char* targetFolder)
 {
-	const char* sourceFile = (bitness == WAYK_BINARIES_BITNESS_X86)
-		? WAYK_NOW_BINARY_FILE_NAME_X86
-		: WAYK_NOW_BINARY_FILE_NAME_X64;
-
-	return WaykCseBundle_ExtractSingleFile(ctx, targetFolder, sourceFile);
+	return WaykCseBundle_ExtractSingleFile(ctx, targetFolder, GetWaykNowBinaryFileName(bitness));
 }
 
 WaykCseBundleStatus WaykCseBundle_ExtractWaykNowInstaller(
@@ -134,23 +129,48 @@ WaykCseBundleStatus WaykCseBundle_ExtractWaykNowInstaller(
 	WaykBinariesBitness bitness,
 	const char* targetFolder)
 {
-	const char* sourceFile = (bitness == WAYK_BINARIES_BITNESS_X86)
-		? INSTALLER_FILE_NAME_X86
-		: INSTALLER_FILE_NAME_X64;
-
-	return WaykCseBundle_ExtractSingleFile(ctx, targetFolder, sourceFile);
+	return WaykCseBundle_ExtractSingleFile(ctx, targetFolder, GetInstallerFileName(bitness));
 }
 
 WaykCseBundleStatus WaykCseBundle_ExtractPowerShellInitScript(
 	WaykCseBundle* ctx,
 	const char* targetFolder)
 {
-	return WaykCseBundle_ExtractSingleFile(ctx, targetFolder, POWER_SHELL_INIT_SCRIPT_FILE_NAME);
+	return WaykCseBundle_ExtractSingleFile(ctx, targetFolder, GetPowerShellInitScriptFileName());
 }
 
 WaykCseBundleStatus WaykCseBundle_ExtractOptionsJson(
 	WaykCseBundle* ctx,
 	const char* targetFolder)
 {
-	return WaykCseBundle_ExtractSingleFile(ctx, targetFolder, JSON_OPTIONS_FILE_NAME);
+	return WaykCseBundle_ExtractSingleFile(ctx, targetFolder, GetJsonOptionsFileName());
+}
+
+const char* GetBrandingFileName()
+{
+	return BRANDING_FILE_NAME;
+}
+
+const char* GetPowerShellInitScriptFileName()
+{
+	return POWER_SHELL_INIT_SCRIPT_FILE_NAME;
+}
+
+const char* GetJsonOptionsFileName()
+{
+	return JSON_OPTIONS_FILE_NAME;
+}
+
+const char* GetInstallerFileName(WaykBinariesBitness bitness)
+{
+	return (bitness == WAYK_BINARIES_BITNESS_X86)
+		? WAYK_NOW_BINARY_FILE_NAME_X86
+		: WAYK_NOW_BINARY_FILE_NAME_X64;
+}
+
+const char* GetWaykNowBinaryFileName(WaykBinariesBitness bitness)
+{
+	return (bitness == WAYK_BINARIES_BITNESS_X86)
+		? INSTALLER_FILE_NAME_X86
+		: INSTALLER_FILE_NAME_X64;
 }

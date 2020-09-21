@@ -342,7 +342,41 @@ cleanup:
 	return result;
 }
 
-const char* GetDefaultWaykNowModulePath()
+char* GetPowerShellModulePath(char* waykNowPath)
 {
-	return "C:/Program Files/Devolutions/Wayk Now";
+	char path[LZ_MAX_PATH];
+	path[0] = '\0';
+	LzPathCchAppend(path, LZ_MAX_PATH, waykNowPath);
+	LzPathCchAppend(path, LZ_MAX_PATH, "PowerShell\\Modules\\WaykNow");
+	return _strdup(path);
+}
+
+int IsElevated()
+{
+	int isElevated = 0;
+	HANDLE hToken = 0;
+	if (OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken))
+	{
+		TOKEN_ELEVATION elevationState;
+		DWORD cbSize = sizeof(TOKEN_ELEVATION);
+		if(GetTokenInformation(
+			hToken,
+			TokenElevation,
+			&elevationState,
+			sizeof(elevationState),
+			&cbSize))
+		{
+			if (elevationState.TokenIsElevated == TRUE)
+			{
+				isElevated = 1;
+			}
+		}
+	}
+
+	if(hToken)
+	{
+		CloseHandle(hToken);
+	}
+
+	return isElevated;
 }
