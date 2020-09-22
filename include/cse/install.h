@@ -7,15 +7,26 @@ typedef enum
 	CSE_INSTALL_FAILURE,
 	CSE_INSTALL_NOMEM,
 	CSE_INSTALL_TOO_BIG_CLI,
+	CSE_INSTALL_INVALID_ARGS,
 } CseInstallResult;
 
 typedef struct cse_isntall CseInstall;
 
 CseInstall* CseInstall_WithLocalMsi(const char* waykNowExecutable, const char* msiPath);
+CseInstall* CseInstall_WithMsiDownload(const char* waykNowExecutable);
+void CseInstall_Free(CseInstall* ctx);
 
-CseInstallResult CseInstall_AppendEnrollmentOptions(const char* url, const char* token);
-CseInstallResult CseInstall_AppendConfigOption(const char* key, const char* value);
+CseInstallResult CseInstall_SetEnrollmentOptions(CseInstall* ctx, const char* url, const char* token);
+CseInstallResult CseInstall_SetConfigOption(CseInstall* ctx, const char* key, const char* value);
+CseInstallResult CseInstall_SetInstallDirectory(CseInstall* ctx, const char* dir);
+CseInstallResult CseInstall_EnableLaunchWaykNowAfterInstall(CseInstall* ctx);
+CseInstallResult CseInstall_DisableDesktopShortcut(CseInstall* ctx);
+CseInstallResult CseInstall_DisableStartMenuShortcut(CseInstall* ctx);
 
-void CseInstallFree(CseInstall* ctx);
+CseInstallResult CseInstall_Run(CseInstall* ctx);
+
+#ifdef CSE_TESTING
+char* CseInstall_GetCli(CseInstall* ctx);
+#endif
 
 #endif //WAYKCSE_INSTALL_H

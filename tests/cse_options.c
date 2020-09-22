@@ -3,7 +3,6 @@
 #include "test_utils.h"
 
 #include <string.h>
-#include <stdio.h>
 
 int connect_json()
 {
@@ -49,21 +48,81 @@ int connect_json()
 		goto finalize;
 	}
 
-	const char* argsResult = CseOptions_GenerateAdditionalMsiOptions(options);
-	if (!argsResult)
+	WaykNowConfigOption* option = CseOptions_GetFirstMsiWaykNowConfigOption(options);
+	if (!option)
 	{
 		result = 7;
 		goto finalize;
 	}
-
-	if (strcmp(
-		argsResult,
-		" CONFIG_AUTO_UPDATE_ENABLED=\"true\""
-		" CONFIG_AUTO_LAUNCH_ON_USER_LOGON=\"false\""
-		" CONFIG_GENERATED_PASSWORD_LENGTH=\"13\""
-		" CONFIG_LOGGING_FILTER=\"test\"") != 0)
+	if (strcmp(WaykNowConfigOption_GetKey(option), "autoUpdateEnabled") != 0)
 	{
 		result = 8;
+		goto finalize;
+	}
+	if (strcmp(WaykNowConfigOption_GetValue(option), "true") != 0)
+	{
+		result = 9;
+		goto finalize;
+	}
+
+	WaykNowConfigOption_Next(&option);
+	if (!option)
+	{
+		result = 10;
+		goto finalize;
+	}
+
+	if (strcmp(WaykNowConfigOption_GetKey(option), "autoLaunchOnUserLogon") != 0)
+	{
+		result = 11;
+		goto finalize;
+	}
+	if (strcmp(WaykNowConfigOption_GetValue(option), "false") != 0)
+	{
+		result = 12;
+		goto finalize;
+	}
+
+	WaykNowConfigOption_Next(&option);
+	if (!option)
+	{
+		result = 13;
+		goto finalize;
+	}
+
+	if (strcmp(WaykNowConfigOption_GetKey(option), "generatedPasswordLength") != 0)
+	{
+		result = 14;
+		goto finalize;
+	}
+	if (strcmp(WaykNowConfigOption_GetValue(option), "13") != 0)
+	{
+		result = 15;
+		goto finalize;
+	}
+
+	WaykNowConfigOption_Next(&option);
+	if (!option)
+	{
+		result = 16;
+		goto finalize;
+	}
+
+	if (strcmp(WaykNowConfigOption_GetKey(option), "loggingFilter") != 0)
+	{
+		result = 17;
+		goto finalize;
+	}
+	if (strcmp(WaykNowConfigOption_GetValue(option), "test") != 0)
+	{
+		result = 18;
+		goto finalize;
+	}
+
+	WaykNowConfigOption_Next(&option);
+	if (option)
+	{
+		result = 19;
 		goto finalize;
 	}
 

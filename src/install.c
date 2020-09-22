@@ -2,6 +2,9 @@
 
 #include <lizard/lizard.h>
 
+#define MAX_OPTION_NAME_SIZE 256
+#define MSI_OPTION_PREFIX "CONFIG_"
+
 #define MAX_CLI_MIN_BUFFER_SIZE 256
 
 // CreateProcessW limit (32767) + null terminator
@@ -14,6 +17,43 @@ struct cse_isntall
 	size_t cliBufferCapacity; // stored cli buffer available capacity
 	size_t cliBufferSize;     // stored cli string size (without trailing '\0')
 };
+
+static CseInstallResult ToSnakeCase(const char* str, char* buffer, size_t bufferSize)
+{
+	unsigned int originalSize = strlen(str);
+	unsigned int currentSize = 0;
+	if (!buffer)
+	{
+		return 0;
+	}
+
+	for (unsigned int i = 0; i < originalSize; ++i)
+	{
+		if (isupper(str[i]) && (i != 0))
+		{
+			if (currentSize + 3 > bufferSize)
+				return CSE_INSTALL_FAILURE;
+			buffer[currentSize++] = '_';
+			buffer[currentSize++] = str[i];
+		}
+		else
+		{
+			if (currentSize + 2 > bufferSize)
+				return CSE_INSTALL_FAILURE;
+			buffer[currentSize++] = _toupper(str[i]);
+		}
+	}
+
+	buffer[currentSize] = '\0';
+	return CSE_INSTALL_OK;
+}
+
+CseInstallResult WaykConfigOptionToMsiOption(const char* str, char* buffer, size_t bufferSize)
+{
+	strcpy_s(buffer, bufferSize, MSI_OPTION_PREFIX);
+	size_t currentBufferSize = sizeof(MSI_OPTION_PREFIX) / sizeof(char) - 1;
+	return ToSnakeCase(str, buffer + currentBufferSize, bufferSize - currentBufferSize);
+}
 
 static CseInstallResult CseInstall_EnsureCliBufferCapacity(CseInstall* ctx, size_t requiredStringSize)
 {
@@ -61,7 +101,7 @@ static CseInstallResult CseInstall_CliAppendString(CseInstall* ctx, const char* 
 	{
 		return result;
 	}
-	strcpy(ctx->cli + ctx->cliBufferSize, str);
+	strcpy_s(ctx->cli + ctx->cliBufferSize, ctx->cliBufferCapacity - ctx->cliBufferSize, str);
 	ctx->cliBufferSize += strSize;
 	return CSE_INSTALL_OK;
 }
@@ -73,15 +113,52 @@ static CseInstallResult CseInstall_CliAppendChar(CseInstall* ctx, char ch)
 	{
 		return result;
 	}
-	ctx->cli[ctx->cliBufferSize] = ch;
+	ctx->cli[ctx->cliBufferSize++] = ch;
 	ctx->cli[ctx->cliBufferSize] = '\0';
-	++ctx->cliBufferSize;
 	return CSE_INSTALL_OK;
 }
 
 static CseInstallResult CseInstall_CliAppendWhitespace(CseInstall* ctx)
 {
 	return CseInstall_CliAppendChar(ctx, ' ');
+}
+
+static size_t GetQuotesCount(const char* str)
+{
+	size_t strSize = strlen(str);
+	size_t quotes = 0;
+	for (size_t i = 0; i <  strSize; ++i)
+	{
+		if (str[i] == '"')
+			++quotes;
+	}
+	return quotes;
+}
+
+static char* MakeEscapedArgument(const char* str)
+{
+	if (!str)
+		return 0;
+
+	size_t originalSize = strlen(str);
+	// allocate original size + space for escape symbols for escape
+	char* escaped = calloc(originalSize + GetQuotesCount(str) + 1, sizeof(char));
+	if (!escaped)
+		return 0;
+	size_t resultStringSize = 0;
+	for (int i = 0; i < originalSize; ++i)
+	{
+		if (str[i] == '"')
+		{
+			escaped[resultStringSize++] = '\\';
+		}
+
+		escaped[resultStringSize++] = str[i];
+	}
+
+	escaped[resultStringSize] = '\0';
+
+	return escaped;
 }
 
 static CseInstallResult CseInstall_CliAppendQuotedString(CseInstall* ctx, const char* str)
@@ -126,12 +203,22 @@ static CseInstall* CseInstall_New(const char* waykNowExecutable, const char* msi
 		if (result != CSE_INSTALL_OK) goto error;
 	}
 
+	return ctx;
+
 error:
 	if (ctx)
 	{
 		CseInstall_Free(ctx);
 	}
 	return 0;
+}
+
+void CseInstall_Free(CseInstall* ctx)
+{
+	if (ctx->waykNowExecutable)
+		free(ctx->waykNowExecutable);
+	if (ctx->cli)
+		free(ctx->cli);
 }
 
 CseInstall* CseInstall_WithLocalMsi(const char* waykNowExecutable, const char* msiPath)
@@ -144,14 +231,96 @@ CseInstall* CseInstall_WithMsiDownload(const char* waykNowExecutable)
 	return CseInstall_New(waykNowExecutable, 0);
 }
 
-CseInstallResult CseInstall_AppendEnrollmentOptions(const char* url, const char* token)
+static CseInstallResult CseInstall_SetMsiOption(CseInstall* ctx, const char* key, const char* value)
 {
-	// TODO: Not implemented
-	return CSE_INSTALL_FAILURE;
+	if (!key || !value)
+	{
+		return CSE_INSTALL_INVALID_ARGS;
+	}
+
+	CseInstallResult result;
+
+	// appends CONFIG_KEY="value"
+	result = CseInstall_CliAppendWhitespace(ctx);
+	if (result != CSE_INSTALL_OK) return result;
+	result = CseInstall_CliAppendString(ctx, key);
+	if (result != CSE_INSTALL_OK) return result;
+	result = CseInstall_CliAppendChar(ctx, '=');
+	if (result != CSE_INSTALL_OK) return result;
+	result = CseInstall_CliAppendQuotedString(ctx, value);
+	if (result != CSE_INSTALL_OK) return result;
+
+	return CSE_INSTALL_OK;
 }
 
-CseInstallResult CseInstall_AppendConfigOption(const char* key, const char* value)
+CseInstallResult CseInstall_SetEnrollmentOptions(CseInstall* ctx, const char* url, const char* token)
 {
-	// TODO: Not implemented
-	return CSE_INSTALL_FAILURE;
+	if (!url || !token)
+	{
+		return CSE_INSTALL_INVALID_ARGS;
+	}
+
+	CseInstallResult result;
+
+	result = CseInstall_SetMsiOption(ctx, "ENROLL_DEN_URL", url);
+	if (result != CSE_INSTALL_OK) return result;
+	result = CseInstall_SetMsiOption(ctx, "ENROLL_TOKEN_ID", token);
+	if (result != CSE_INSTALL_OK) return result;
+
+	return CSE_INSTALL_OK;
 }
+
+CseInstallResult CseInstall_SetConfigOption(CseInstall* ctx, const char* key, const char* value)
+{
+	char msiOptionName[MAX_OPTION_NAME_SIZE];
+	CseInstallResult result = WaykConfigOptionToMsiOption(key, msiOptionName, MAX_OPTION_NAME_SIZE);
+	if (result != CSE_INSTALL_OK) return result;
+
+
+	char* escapedValue = MakeEscapedArgument(value);
+	if (!escapedValue)
+	{
+		return CSE_INSTALL_NOMEM;
+	}
+
+	result = CseInstall_SetMsiOption(ctx, msiOptionName, value);
+	free(escapedValue);
+	return result;
+}
+
+CseInstallResult CseInstall_SetInstallDirectory(CseInstall* ctx, const char* dir)
+{
+	if (!dir)
+	{
+		return CSE_INSTALL_INVALID_ARGS;
+	}
+
+	return CseInstall_SetMsiOption(ctx, "INSTALLDIR", dir);
+}
+
+CseInstallResult CseInstall_EnableLaunchWaykNowAfterInstall(CseInstall* ctx)
+{
+	return CseInstall_SetMsiOption(ctx, "SUPPRESSLAUNCH", "0");
+}
+
+CseInstallResult CseInstall_DisableDesktopShortcut(CseInstall* ctx)
+{
+	return CseInstall_SetMsiOption(ctx, "INSTALLDESKTOPSHORTCUT", "0");
+}
+
+CseInstallResult CseInstall_DisableStartMenuShortcut(CseInstall* ctx)
+{
+	return CseInstall_SetMsiOption(ctx, "INSTALLSTARTMENUSHORTCUT", "0");
+}
+
+#ifdef CSE_TESTING
+
+char* CseInstall_GetCli(CseInstall* ctx)
+{
+	return ctx->cli;
+}
+
+#endif
+
+
+CseInstallResult CseInstall_Run(CseInstall* ctx);

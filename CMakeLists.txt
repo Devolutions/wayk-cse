@@ -96,6 +96,10 @@ set(${MODULE_PREFIX}_RESOURCES
 	"${CMAKE_CURRENT_BINARY_DIR}/version.rc")
 source_group("Resources" FILES ${${MODULE_PREFIX}_RESOURCES})
 
+if(DEFINED TESTING)
+	add_compile_definitions(CSE_TESTING)
+endif()
+
 set(${MODULE_PREFIX}_LIB_SOURCES
 	src/cse_utils.c
 	src/bundle.c
@@ -136,15 +140,20 @@ target_include_directories(
 
 add_executable(${MODULE_NAME} ${${MODULE_PREFIX}_SOURCES} ${${MODULE_PREFIX}_RESOURCES})
 target_link_libraries(${MODULE_NAME} PRIVATE ${MODULE_NAME}-lib)
-
-enable_testing()
-
-add_executable(${MODULE_NAME}-test-env-expand tests/env_expand.c)
-target_link_libraries(${MODULE_NAME}-test-env-expand PUBLIC ${MODULE_NAME}-lib)
-add_test(${MODULE_NAME}-test-env-expand ${MODULE_NAME}-test-env-expand)
-
-add_executable(${MODULE_NAME}-test-cse-options tests/cse_options.c)
-target_link_libraries(${MODULE_NAME}-test-cse-options PUBLIC ${MODULE_NAME}-lib)
-add_test(${MODULE_NAME}-test-cse-options ${MODULE_NAME}-test-cse-options)
-
 set_target_properties(${MODULE_NAME} PROPERTIES OUTPUT_NAME "${OUTPUT_NAME}")
+
+if (DEFINED TESTING)
+	enable_testing()
+
+	add_executable(${MODULE_NAME}-test-env-expand tests/env_expand.c)
+	target_link_libraries(${MODULE_NAME}-test-env-expand PUBLIC ${MODULE_NAME}-lib)
+	add_test(${MODULE_NAME}-test-env-expand ${MODULE_NAME}-test-env-expand)
+
+	add_executable(${MODULE_NAME}-test-cse-options tests/cse_options.c)
+	target_link_libraries(${MODULE_NAME}-test-cse-options PUBLIC ${MODULE_NAME}-lib)
+	add_test(${MODULE_NAME}-test-cse-options ${MODULE_NAME}-test-cse-options)
+
+	add_executable(${MODULE_NAME}-test-cse-install tests/cse_install.c)
+	target_link_libraries(${MODULE_NAME}-test-cse-install PUBLIC ${MODULE_NAME}-lib)
+	add_test(${MODULE_NAME}-test-cse-install ${MODULE_NAME}-test-cse-install)
+endif()

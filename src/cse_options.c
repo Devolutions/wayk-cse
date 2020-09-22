@@ -14,8 +14,6 @@ struct wayk_now_config_option
 	struct wayk_now_config_option* next;
 };
 
-typedef struct wayk_now_config_option WaykNowConfigOption;
-
 static WaykNowConfigOption* WaykNowConfigOption_Append(WaykNowConfigOption* prev, const char* key, const char* value)
 {
 	WaykNowConfigOption* node = calloc(1, sizeof(WaykNowConfigOption));
@@ -317,64 +315,6 @@ CseOptionsResult CseOptions_LoadFromString(CseOptions* ctx, const char* json)
 	return CseOptions_Process(ctx, rootValue);
 }
 
-
-char* CseOptions_GenerateAdditionalMsiOptions(CseOptions* ctx)
-{
-	int bufferSize = 256;
-	char* cliOptions = malloc(bufferSize);
-	cliOptions[0] = '\0';
-
-	WaykNowConfigOption* option = ctx->waykOptions;
-
-	while (option)
-	{
-		char* msiOption = ToSnakeCase(option->key);
-		if (!msiOption)
-		{
-			goto error;
-		}
-
-		unsigned int prevSize = strlen(cliOptions);
-		unsigned int result = 0;
-		do
-		{
-			result = sprintf_s(
-				cliOptions + prevSize,
-				bufferSize - prevSize,
-				" CONFIG_%s=\"%s\"",
-				msiOption,
-				option->value);
-			if (result < 0)
-			{
-				char* newBlock = realloc(cliOptions, bufferSize * 2);
-				if (!newBlock)
-				{
-					goto error;
-				}
-				cliOptions = newBlock;
-				bufferSize *= 2;
-			}
-
-		} while (result < 0);
-
-		option = option->next;
-	}
-
-	return cliOptions;
-
-error:
-	if (cliOptions)
-	{
-		free(cliOptions);
-	}
-	return 0;
-}
-
-void CseOptions_FreeAdditionalMsiOptions(char* msiOptions)
-{
-	free(msiOptions);
-}
-
 bool CseOptions_StartAfterInstall(CseOptions* ctx)
 {
 	return ctx->startAfterInstall;
@@ -393,4 +333,33 @@ const char* CseOptions_GetEnrollmentUrl(CseOptions* ctx)
 const char* CseOptions_GetEnrollmentToken(CseOptions* ctx)
 {
 	return ctx->enrollmentToken;
+}
+
+WaykNowConfigOption* CseOptions_GetFirstMsiWaykNowConfigOption(CseOptions* ctx)
+{
+	return ctx->waykOptions;
+}
+
+void WaykNowConfigOption_Next(WaykNowConfigOption** pOption)
+{
+	if (pOption)
+	{
+		(*pOption) = (*pOption)->next;
+	}
+}
+
+const char* WaykNowConfigOption_GetKey(WaykNowConfigOption* option)
+{
+	if (!option)
+		return 0;
+
+	return option->key;
+}
+
+const char* WaykNowConfigOption_GetValue(WaykNowConfigOption* option)
+{
+	if (!option)
+		return 0;
+
+	return option->value;
 }
