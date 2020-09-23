@@ -68,7 +68,10 @@ struct cse_options
 {
 	JSON_Value* jsonRoot;
 	bool startAfterInstall;
+	bool createDesktopShortcut;
+	bool createStartMenuShortcut;
 	bool waykPsModuleImportRequired;
+	char* installPath;
 	char* enrollmentUrl;
 	char* enrollmentToken;
 	WaykNowConfigOption* waykOptions;
@@ -163,12 +166,47 @@ static CseOptionsResult CseOptions_Process(CseOptions* ctx, JSON_Value* rootValu
 		ctx->startAfterInstall = startAfterInstall;
 	}
 
+	int createDesktopShortcut = lz_json_object_dotget_boolean(
+		root,
+		"install.createDesktopShortcut");
+	if (createDesktopShortcut >= 0)
+	{
+		ctx->createDesktopShortcut = createDesktopShortcut;
+	}
+	else
+	{
+		ctx->createDesktopShortcut = true;
+	}
+
+	int createStartMenuShortcut = lz_json_object_dotget_boolean(
+		root,
+		"install.createStartMenuShortcut");
+	if (createStartMenuShortcut >= 0)
+	{
+		ctx->createStartMenuShortcut = createStartMenuShortcut;
+	}
+	else
+	{
+		ctx->createStartMenuShortcut = true;
+	}
+
 	int waykPsModuleImportRequired = lz_json_object_dotget_boolean(
 		root,
 		"postInstallScript.importWaykNowModule");
 	if (waykPsModuleImportRequired >= 0)
 	{
 		ctx->waykPsModuleImportRequired = waykPsModuleImportRequired;
+	}
+
+	const char* installPath = lz_json_object_dotget_string(root, "install.installPath");
+	if (installPath)
+	{
+		ctx->installPath = _strdup(installPath);
+		if (!ctx->installPath)
+		{
+			result = CSE_OPTIONS_NOMEM;
+			goto error;
+		}
 	}
 
 	const char* enrollmentUrl = lz_json_object_dotget_string(root, "enrollment.url");
@@ -318,6 +356,21 @@ CseOptionsResult CseOptions_LoadFromString(CseOptions* ctx, const char* json)
 bool CseOptions_StartAfterInstall(CseOptions* ctx)
 {
 	return ctx->startAfterInstall;
+}
+
+bool CseOptions_CreateDesktopShortcut(CseOptions* ctx)
+{
+	return ctx->createDesktopShortcut;
+}
+
+bool CseOptions_CreateStartMenuShortcut(CseOptions* ctx)
+{
+	return ctx->createStartMenuShortcut;
+}
+
+const char* CseOptions_GetInstallDirectory(CseOptions* ctx)
+{
+	return ctx->installPath;
 }
 
 bool CseOptions_WaykNowPsModuleImportRequired(CseOptions* ctx)

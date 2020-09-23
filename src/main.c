@@ -4,6 +4,7 @@
 #include <lizard/lizard.h>
 
 #include <cse/cse_utils.h>
+#include <cse/install.h>
 #include <cse/bundle.h>
 #include <cse/log.h>
 #include <cse/cse_options.h>
@@ -149,10 +150,12 @@ int main(int argc, char** argv)
 	char extractionPath[LZ_MAX_PATH];
 	char optionsPath[LZ_MAX_PATH];
 	char waykNowBinaryPath[LZ_MAX_PATH];
+	char msiPath[LZ_MAX_PATH];
 	char* productName = 0;
 	char* waykNowInstallationDir = 0;
 	HANDLE cseStartedMutex = 0;
 	CseOptions* cseOptions = 0;
+	CseInstall* cseInstall = 0;
 
 #ifdef NDEBUG
 	CseLog_Init(stderr, CSE_LOG_LEVEL_INFO);
@@ -239,17 +242,119 @@ int main(int argc, char** argv)
 		goto cleanup;
 	}
 
+	waykNowBinaryPath[0] = '\0';
+	LzPathCchAppend(optionsPath, sizeof(optionsPath), extractionPath);
+	LzPathCchAppend(optionsPath, sizeof(optionsPath), GetWaykNowBinaryFileName(waykBinariesBitness));
 
-	// TODO: make MSI_options;
-	// TODO: execute MSI;
+	if (bundleOptionalContentInfo.hasEmbeddedInstaller)
+	{
+		msiPath[0] = '\0';
+		LzPathCchAppend(msiPath, sizeof(msiPath), extractionPath);
+		LzPathCchAppend(msiPath, sizeof(msiPath), GetInstallerFileName(waykBinariesBitness));
+		cseInstall = CseInstall_WithLocalMsi(waykNowBinaryPath, msiPath);
+	}
+	else
+	{
+		cseInstall = CseInstall_WithMsiDownload(waykNowBinaryPath);
+	}
 
-	//WaitForSingleObject(processInfo.hProcess, INFINITE);
+	if (!cseInstall)
+	{
+		CSE_LOG_ERROR("Failed to stat MSI arguments generation process");
+		status = LZ_ERROR_FAIL;
+		goto cleanup;
+	}
 
+	const char* enrollmentToken = CseOptions_GetEnrollmentToken(cseOptions);
+	const char* enrollmentUrl = CseOptions_GetEnrollmentUrl(cseOptions);
+	if (enrollmentToken || enrollmentUrl)
+	{
+		if (CseInstall_SetEnrollmentOptions(
+			cseInstall,
+			enrollmentUrl,
+			enrollmentToken) != CSE_INSTALL_OK)
+		{
+			CSE_LOG_ERROR("Failed to set enrollment info for MSI arguments");
+			status = LZ_ERROR_FAIL;
+			goto cleanup;
+		}
+	}
+
+	const char* requestedInstallDirectory = CseOptions_GetInstallDirectory(cseOptions);
+	if (requestedInstallDirectory)
+	{
+		if (CseInstall_SetInstallDirectory(cseInstall, requestedInstallDirectory) != CSE_INSTALL_OK)
+		{
+			CSE_LOG_ERROR("Failed to set install directory for MSI");
+			status = LZ_ERROR_FAIL;
+			goto cleanup;
+		}
+	}
+
+	bool startAfterInstall = CseOptions_StartAfterInstall(cseOptions);
+	if (startAfterInstall)
+	{
+		if (CseInstall_EnableLaunchWaykNowAfterInstall(cseInstall) != CSE_INSTALL_OK)
+		{
+			CSE_LOG_ERROR("Failed to enable WaykNow app start after install for MSI");
+			status = LZ_ERROR_FAIL;
+			goto cleanup;
+		}
+	}
+
+	bool createDesktopShortcut = CseOptions_CreateDesktopShortcut(cseOptions);
+	if (!createDesktopShortcut)
+	{
+		if (CseInstall_DisableDesktopShortcut(cseInstall) != CSE_INSTALL_OK)
+		{
+			CSE_LOG_ERROR("Failed to disable create desktop shortcut option for MSI");
+			status = LZ_ERROR_FAIL;
+			goto cleanup;
+		}
+	}
+
+	bool createStartMenuShortcut = CseOptions_CreateStartMenuShortcut(cseOptions);
+	if (!createStartMenuShortcut)
+	{
+		if (CseInstall_DisableStartMenuShortcut(cseInstall) != CSE_INSTALL_OK)
+		{
+			CSE_LOG_ERROR("Failed to disable create start menu shortcut option for MSI");
+			status = LZ_ERROR_FAIL;
+			goto cleanup;
+		}
+	}
+
+	WaykNowConfigOption* configOption = CseOptions_GetFirstMsiWaykNowConfigOption(cseOptions);
+	while (configOption)
+	{
+		if (CseInstall_SetConfigOption(
+			cseOptions,
+			WaykNowConfigOption_GetKey(configOption),
+			WaykNowConfigOption_GetValue(configOption)) != CSE_INSTALL_OK)
+		{
+			CSE_LOG_ERROR(
+				"Failed to set %s config option for MSI",
+				WaykNowConfigOption_GetKey(configOption));
+
+			status = LZ_ERROR_FAIL;
+			goto cleanup;
+		}
+
+		WaykNowConfigOption_Next(&configOption);
+	}
+
+	if (CseInstall_Run(cseInstall) != CSE_INSTALL_OK)
+	{
+		CSE_LOG_ERROR("Failed to execute MSI isntallation");
+		status = LZ_ERROR_FAIL;
+		goto cleanup;
+	}
 
 	waykNowInstallationDir = GetWaykInstallationDir();
 	if (!waykNowInstallationDir)
 	{
 		CSE_LOG_ERROR("Failed to query %s installation dir", productName);
+		status = LZ_ERROR_FAIL;
 		goto cleanup;
 	}
 
@@ -286,6 +391,8 @@ cleanup:
 		CloseHandle(cseStartedMutex);
 	if (cseOptions)
 		CseOptions_Free(cseOptions);
+	if (cseInstall)
+		CseInstall_Free(cseInstall);
 
 	return status;
 }

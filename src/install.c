@@ -165,7 +165,6 @@ static CseInstallResult CseInstall_CliAppendQuotedString(CseInstall* ctx, const 
 {
 	CseInstallResult result = CseInstall_CliAppendChar(ctx, '"');
 	if (result != CSE_INSTALL_OK) return result;
-	// TODO: escape quotes in string
 	result = CseInstall_CliAppendString(ctx, str);
 	if (result != CSE_INSTALL_OK) return result;
 	result = CseInstall_CliAppendChar(ctx, '"');
@@ -323,4 +322,54 @@ char* CseInstall_GetCli(CseInstall* ctx)
 #endif
 
 
-CseInstallResult CseInstall_Run(CseInstall* ctx);
+CseInstallResult CseInstall_Run(CseInstall* ctx)
+{
+	CseInstallResult result = CSE_INSTALL_OK;
+	STARTUPINFOA startupInfo;
+	PROCESS_INFORMATION processInfo;
+	DWORD returnCode = 0;
+	void* wow64FsRedirectionContext = 0;
+
+	ZeroMemory(&startupInfo, sizeof(STARTUPINFOA));
+	startupInfo.cb = sizeof(STARTUPINFOA);
+	ZeroMemory(&processInfo, sizeof(PROCESS_INFORMATION));
+
+	if (LzIsWow64())
+		pfnWow64DisableWow64FsRedirection(&wow64FsRedirectionContext);
+
+	BOOL processCreated = LzCreateProcess(
+		ctx->waykNowExecutable,
+		ctx->cli,
+		0,
+		0,
+		FALSE,
+		0,
+		0,
+		0,
+		&startupInfo,
+		&processInfo);
+
+	if (LzIsWow64())
+		pfnWow64RevertWow64FsRedirection(wow64FsRedirectionContext);
+
+	if (processCreated != TRUE)
+	{
+		result = CSE_INSTALL_CREATE_PROCESS_FAILED;
+		goto finalize;
+	}
+
+	WaitForSingleObject(processInfo.hProcess, INFINITE);
+	GetExitCodeProcess(processInfo.hProcess, &returnCode);
+	if (returnCode != 0)
+	{
+		result = CSE_INSTALL_MSI_FAILED;
+	}
+
+finalize:
+	if (processInfo.hThread)
+		CloseHandle(processInfo.hThread);
+	if (processInfo.hProcess)
+		CloseHandle(processInfo.hProcess);
+
+	return result;
+}

@@ -22,6 +22,9 @@ CseOptionsResult CseOptions_LoadFromString(CseOptions* ctx, const char* json);
 
 // Installation
 bool CseOptions_StartAfterInstall(CseOptions* ctx);
+bool CseOptions_CreateDesktopShortcut(CseOptions* ctx);
+bool CseOptions_CreateStartMenuShortcut(CseOptions* ctx);
+const char* CseOptions_GetInstallDirectory(CseOptions* ctx);
 // Post install script
 bool CseOptions_WaykNowPsModuleImportRequired(CseOptions* ctx);
 // Enrollment

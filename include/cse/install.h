@@ -8,6 +8,8 @@ typedef enum
 	CSE_INSTALL_NOMEM,
 	CSE_INSTALL_TOO_BIG_CLI,
 	CSE_INSTALL_INVALID_ARGS,
+	CSE_INSTALL_CREATE_PROCESS_FAILED,
+	CSE_INSTALL_MSI_FAILED,
 } CseInstallResult;
 
 typedef struct cse_isntall CseInstall;
