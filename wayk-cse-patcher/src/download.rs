@@ -1,15 +1,18 @@
 use std::{
     fs, io,
     path::{Path},
+    env,
 };
 
 use regex::Regex;
 use thiserror::Error;
 use url::Url;
+use log::info;
 
 use crate::{bundle::Bitness, fs_util::remove_file_after_reboot, version::NowVersion};
 
 const VERSION_URL: &str = "https://devolutions.net/products.htm";
+const LOCAL_ARTIFACTS_ENV_VAR: &str = "CSE_LOCAL_ARTIFACTS";
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -23,6 +26,8 @@ pub enum Error {
     ReqwestFailure(#[from] reqwest::Error),
     #[error("Failed to detect remote version")]
     RemoteVersionNotDetected(String),
+    #[error("Failed to get artifacts from local storage ({0})")]
+    LocalArtifactsStorageError(String),
 }
 
 impl Error {
@@ -49,14 +54,34 @@ fn construct_package_url(
 }
 
 fn construct_msi_url(bitness: Bitness, version: NowVersion) -> DownloadResult<Url> {
+    if let Some(local_artifacts_path) = env::var(LOCAL_ARTIFACTS_ENV_VAR).ok() {
+        let artifact_name = format!("WaykNow_{}.msi", bitness);
+        let url = Url::from_file_path(Path::new(&local_artifacts_path).join(artifact_name))
+            .map_err(|_| {
+                Error::LocalArtifactsStorageError("Local artifacts storage does not exist".to_string())
+            })?;
+        info!("Using local artifacts storage for msi download");
+        return Ok(url);
+    }
+
     construct_package_url(bitness, version, "msi")
 }
 
 fn construct_zip_url(bitness: Bitness, version: NowVersion) -> DownloadResult<Url> {
+    if let Some(local_artifacts_path) = env::var(LOCAL_ARTIFACTS_ENV_VAR).ok() {
+        let artifact_name = format!("WaykNow_{}.zip", bitness);
+        let url = Url::from_file_path(Path::new(&local_artifacts_path).join(artifact_name))
+            .map_err(|_| {
+                Error::LocalArtifactsStorageError("Local artifacts storage does not exist".to_string())
+            })?;
+        info!("Using local artifacts storage for zip download");
+        return Ok(url);
+    }
+
     construct_package_url(bitness, version, "zip")
 }
 
-fn download_msi(destination: &Path, url: &Url) -> DownloadResult<()> {
+fn download_artifact(destination: &Path, url: &Url) -> DownloadResult<()> {
     let client = reqwest::blocking::Client::builder()
         .user_agent(get_agent())
         .build()?;
@@ -70,13 +95,13 @@ fn download_msi(destination: &Path, url: &Url) -> DownloadResult<()> {
 pub fn download_latest_zip(destination: &Path, bitness: Bitness) -> DownloadResult<()> {
     let version = get_remote_version()?;
     let url = construct_zip_url(bitness, version)?;
-    download_msi(destination, &url)
+    download_artifact(destination, &url)
 }
 
 pub fn download_latest_msi(destination: &Path, bitness: Bitness) -> DownloadResult<()> {
     let version = get_remote_version()?;
     let url = construct_msi_url(bitness, version)?;
-    download_msi(destination, &url)
+    download_artifact(destination, &url)
 }
 
 pub fn get_remote_version() -> DownloadResult<NowVersion> {
