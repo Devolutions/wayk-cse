@@ -4,14 +4,14 @@
 #include <stdarg.h>
 #include <stdio.h>
 
-enum
+typedef enum
 {
 	CSE_LOG_LEVEL_TRACE,
 	CSE_LOG_LEVEL_DEBUG,
 	CSE_LOG_LEVEL_INFO,
 	CSE_LOG_LEVEL_WARN,
 	CSE_LOG_LEVEL_ERROR
-};
+} CseLogLevel;
 
 #define CSE_LOG_TRACE(...) CseLog_Message(CSE_LOG_LEVEL_TRACE, __FILE__, __LINE__, __VA_ARGS__)
 #define CSE_LOG_DEBUG(...) CseLog_Message(CSE_LOG_LEVEL_DEBUG, __FILE__, __LINE__, __VA_ARGS__)
@@ -20,7 +20,7 @@ enum
 #define CSE_LOG_ERROR(...) CseLog_Message(CSE_LOG_LEVEL_ERROR, __FILE__, __LINE__, __VA_ARGS__)
 
 
-void CseLog_Init(FILE* outputFile, int logLevel);
-void CseLog_Message(int level, const char *file, int line, const char *fmt, ...);
+void CseLog_Init(FILE* outputFile, CseLogLevel logLevel);
+void CseLog_Message(CseLogLevel level, const char *file, int line, const char *fmt, ...);
 
 #endif //WAYKCSE_LOG_H

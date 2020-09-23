@@ -1,4 +1,5 @@
 #include <cse/install.h>
+#include <cse/log.h>
 
 #include <lizard/lizard.h>
 
@@ -24,6 +25,7 @@ static CseInstallResult ToSnakeCase(const char* str, char* buffer, size_t buffer
 	unsigned int currentSize = 0;
 	if (!buffer)
 	{
+		CSE_LOG_ERROR("Invalid arguments");
 		return 0;
 	}
 
@@ -32,14 +34,20 @@ static CseInstallResult ToSnakeCase(const char* str, char* buffer, size_t buffer
 		if (isupper(str[i]) && (i != 0))
 		{
 			if (currentSize + 3 > bufferSize)
+			{
+				CSE_LOG_ERROR("Insufficient buffer");
 				return CSE_INSTALL_FAILURE;
+			}
 			buffer[currentSize++] = '_';
 			buffer[currentSize++] = str[i];
 		}
 		else
 		{
 			if (currentSize + 2 > bufferSize)
+			{
+				CSE_LOG_ERROR("Insufficient buffer");
 				return CSE_INSTALL_FAILURE;
+			}
 			buffer[currentSize++] = _toupper(str[i]);
 		}
 	}
@@ -67,6 +75,7 @@ static CseInstallResult CseInstall_EnsureCliBufferCapacity(CseInstall* ctx, size
 
 	if (required_capacity > MAX_CLI_BUFFER_SIZE)
 	{
+		CSE_LOG_ERROR("Command line arguments string for MSI is too long");
 		return CSE_INSTALL_TOO_BIG_CLI;
 	}
 
@@ -80,6 +89,7 @@ static CseInstallResult CseInstall_EnsureCliBufferCapacity(CseInstall* ctx, size
 		char* newBuffer = realloc(ctx->cli, required_capacity);
 		if (!newBuffer)
 		{
+			CSE_LOG_ERROR("Allocation failed");
 			return CSE_INSTALL_NOMEM;
 		}
 		ctx->cli = newBuffer;
@@ -87,6 +97,11 @@ static CseInstallResult CseInstall_EnsureCliBufferCapacity(CseInstall* ctx, size
 	else
 	{
 		ctx->cli = malloc(required_capacity);
+		if (!ctx->cli)
+		{
+			CSE_LOG_ERROR("Allocation failed");
+			return CSE_INSTALL_NOMEM;
+		}
 	}
 
 	ctx->cliBufferCapacity = required_capacity;
@@ -99,6 +114,7 @@ static CseInstallResult CseInstall_CliAppendString(CseInstall* ctx, const char* 
 	CseInstallResult result = CseInstall_EnsureCliBufferCapacity(ctx, strSize);
 	if (result != CSE_INSTALL_OK)
 	{
+		CSE_LOG_ERROR("Failed to extend CLI arguments buffer");
 		return result;
 	}
 	strcpy_s(ctx->cli + ctx->cliBufferSize, ctx->cliBufferCapacity - ctx->cliBufferSize, str);
@@ -111,6 +127,7 @@ static CseInstallResult CseInstall_CliAppendChar(CseInstall* ctx, char ch)
 	CseInstallResult result = CseInstall_EnsureCliBufferCapacity(ctx, 1);
 	if (result != CSE_INSTALL_OK)
 	{
+		CSE_LOG_ERROR("Failed to extend CLI arguments buffer");
 		return result;
 	}
 	ctx->cli[ctx->cliBufferSize++] = ch;
@@ -144,7 +161,10 @@ static char* MakeEscapedArgument(const char* str)
 	// allocate original size + space for escape symbols for escape
 	char* escaped = calloc(originalSize + GetQuotesCount(str) + 1, sizeof(char));
 	if (!escaped)
+	{
+		CSE_LOG_ERROR("Allocation failed");
 		return 0;
+	}
 	size_t resultStringSize = 0;
 	for (int i = 0; i < originalSize; ++i)
 	{
@@ -177,12 +197,14 @@ static CseInstall* CseInstall_New(const char* waykNowExecutable, const char* msi
 	CseInstall* ctx = calloc(1, sizeof(CseInstall));
 	if (!ctx)
 	{
+		CSE_LOG_ERROR("Allocation failed");
 		goto error;
 	}
 
 	ctx->waykNowExecutable = _strdup(waykNowExecutable);
 	if (!ctx->waykNowExecutable)
 	{
+		CSE_LOG_ERROR("Allocation failed");
 		goto error;
 	}
 
@@ -205,6 +227,7 @@ static CseInstall* CseInstall_New(const char* waykNowExecutable, const char* msi
 	return ctx;
 
 error:
+	CSE_LOG_ERROR("Failed to init MSI CLI arguments generator");
 	if (ctx)
 	{
 		CseInstall_Free(ctx);
@@ -232,8 +255,10 @@ CseInstall* CseInstall_WithMsiDownload(const char* waykNowExecutable)
 
 static CseInstallResult CseInstall_SetMsiOption(CseInstall* ctx, const char* key, const char* value)
 {
+	CSE_LOG_TRACE("Setting MSI option \"%s\" to \"%s\"", key, value);
 	if (!key || !value)
 	{
+		CSE_LOG_ERROR("Invalid arguments");
 		return CSE_INSTALL_INVALID_ARGS;
 	}
 
@@ -256,6 +281,7 @@ CseInstallResult CseInstall_SetEnrollmentOptions(CseInstall* ctx, const char* ur
 {
 	if (!url || !token)
 	{
+		CSE_LOG_ERROR("Invalid arguments");
 		return CSE_INSTALL_INVALID_ARGS;
 	}
 
@@ -271,10 +297,15 @@ CseInstallResult CseInstall_SetEnrollmentOptions(CseInstall* ctx, const char* ur
 
 CseInstallResult CseInstall_SetConfigOption(CseInstall* ctx, const char* key, const char* value)
 {
+	CSE_LOG_TRACE("Setting MSI app config option \"%s\" to \"%s\"", key, value);
+
 	char msiOptionName[MAX_OPTION_NAME_SIZE];
 	CseInstallResult result = WaykConfigOptionToMsiOption(key, msiOptionName, MAX_OPTION_NAME_SIZE);
-	if (result != CSE_INSTALL_OK) return result;
-
+	if (result != CSE_INSTALL_OK)
+	{
+		CSE_LOG_ERROR("Failed to set MSI option");
+		return result;
+	}
 
 	char* escapedValue = MakeEscapedArgument(value);
 	if (!escapedValue)
@@ -291,6 +322,7 @@ CseInstallResult CseInstall_SetInstallDirectory(CseInstall* ctx, const char* dir
 {
 	if (!dir)
 	{
+		CSE_LOG_ERROR("Invalid arguments");
 		return CSE_INSTALL_INVALID_ARGS;
 	}
 
@@ -334,6 +366,10 @@ CseInstallResult CseInstall_Run(CseInstall* ctx)
 	startupInfo.cb = sizeof(STARTUPINFOA);
 	ZeroMemory(&processInfo, sizeof(PROCESS_INFORMATION));
 
+	CSE_LOG_DEBUG("Starting WaykNow executable for MSI installation...");
+	CSE_LOG_DEBUG("Executable: %s", ctx->waykNowExecutable);
+	CSE_LOG_DEBUG("CLI: %s", ctx->cli);
+
 	if (LzIsWow64())
 		pfnWow64DisableWow64FsRedirection(&wow64FsRedirectionContext);
 
@@ -354,14 +390,17 @@ CseInstallResult CseInstall_Run(CseInstall* ctx)
 
 	if (processCreated != TRUE)
 	{
+		CSE_LOG_ERROR("Failed to create MSI installation process");
 		result = CSE_INSTALL_CREATE_PROCESS_FAILED;
 		goto finalize;
 	}
 
+	CSE_LOG_INFO("Waiting for MSI installation to finish...");
 	WaitForSingleObject(processInfo.hProcess, INFINITE);
 	GetExitCodeProcess(processInfo.hProcess, &returnCode);
 	if (returnCode != 0)
 	{
+		CSE_LOG_ERROR("MSI installation failed with code %d", (int) returnCode);
 		result = CSE_INSTALL_MSI_FAILED;
 	}
 

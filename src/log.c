@@ -17,7 +17,7 @@ typedef void (*log_LogFn)(LogMessageContext *ev);
 
 static struct
 {
-	int level;
+	CseLogLevel level;
 	log_LogFn* logFn;
 	FILE* outputFile;
 } CseLog;
@@ -42,7 +42,7 @@ static void WriteLogInternal(LogMessageContext* ctx)
 	fflush(CseLog.outputFile);
 }
 
-void CseLog_Message(int level, const char *file, int line, const char *fmt, ...)
+void CseLog_Message(CseLogLevel level, const char *file, int line, const char *fmt, ...)
 {
 	if (level >= CseLog.level)
 	{
@@ -63,7 +63,7 @@ void CseLog_Message(int level, const char *file, int line, const char *fmt, ...)
 	}
 }
 
-void CseLog_Init(FILE* outputFile, int logLevel)
+void CseLog_Init(FILE* outputFile, CseLogLevel logLevel)
 {
 	CseLog.outputFile = outputFile;
 	CseLog.level = logLevel;

@@ -9,17 +9,11 @@
 #include <cse/log.h>
 #include <cse/cse_options.h>
 
-#define MAX_TEXT_MESSAGE_SIZE 1024
-
-#define START_UNATTENDED_SERVICE_TIMEOUT 15000 // 15s
-
 #define _CSE_APP_ERROR_BASE (-0x10000000)
 #define LZ_ERROR_BUNDLE_EXTRACTION (_CSE_APP_ERROR_BASE - 0)
 #define LZ_ERROR_MULTIPLE_CSE_INSTANCES (_CSE_APP_ERROR_BASE - 1)
-#define LZ_ERROR_CONFLICTING_SERVICE (_CSE_APP_ERROR_BASE - 2)
 
 #define CSE_INSTANCE_MUTEX_NAME_W L"Global\\WaykNowCSEInstance"
-#define CSE_SERVICE_LAUNCHER_READY_EVENT_W L"Global\\WaykNowCSEServiceLauncherReady"
 
 typedef struct
 {
@@ -138,14 +132,49 @@ cleanup:
 	return installPath;
 }
 
+static CseLogLevel GetLogLevel()
+{
+	char logLevelStr[16];
+
+	// Log settings overwritten by env variable
+	if (LzEnv_GetEnv("CSE_LOG", logLevelStr, 16) == LZ_OK)
+	{
+		if (strcmp(logLevelStr, "trace") == 0)
+		{
+			return CSE_LOG_LEVEL_TRACE;
+		}
+		else if (strcmp(logLevelStr, "debug") == 0)
+		{
+			return CSE_LOG_LEVEL_DEBUG;
+		}
+		else if (strcmp(logLevelStr, "info") == 0)
+		{
+			return CSE_LOG_LEVEL_INFO;
+		}
+		else if (strcmp(logLevelStr, "warn") == 0)
+		{
+			return CSE_LOG_LEVEL_WARN;
+		}
+		else if (strcmp(logLevelStr, "error") == 0)
+		{
+			return CSE_LOG_LEVEL_ERROR;
+		}
+	}
+
+	// Default settings
+	#ifdef NDEBUG
+		return CSE_LOG_LEVEL_INFO;
+	#else
+		return CSE_LOG_LEVEL_DEBUG;
+	#endif
+}
+
 int main(int argc, char** argv)
 {
 	int status;
-	BOOL wow64;
 	WaykBinariesBitness waykBinariesBitness;
 	BundleOptionalContentInfo bundleOptionalContentInfo;
-	PROCESS_INFORMATION processInfo;
-	char text[MAX_TEXT_MESSAGE_SIZE];
+	char tempFolderName[LZ_MAX_PATH];
 	char psInitScriptPath[LZ_MAX_PATH];
 	char extractionPath[LZ_MAX_PATH];
 	char optionsPath[LZ_MAX_PATH];
@@ -157,16 +186,9 @@ int main(int argc, char** argv)
 	CseOptions* cseOptions = 0;
 	CseInstall* cseInstall = 0;
 
-#ifdef NDEBUG
-	CseLog_Init(stderr, CSE_LOG_LEVEL_INFO);
-#else
-	CseLog_Init(stderr, CSE_LOG_LEVEL_DEBUG);
-#endif
+	CseLog_Init(stderr, GetLogLevel());
 
-	wow64 = LzIsWow64();
-	waykBinariesBitness = wow64 ? WAYK_BINARIES_BITNESS_X64 : WAYK_BINARIES_BITNESS_X86;
-
-	ZeroMemory(&bundleOptionalContentInfo, sizeof(BundleOptionalContentInfo));
+	waykBinariesBitness = LzIsWow64() ? WAYK_BINARIES_BITNESS_X64 : WAYK_BINARIES_BITNESS_X86;
 
 	if (!IsElevated())
 	{
@@ -180,6 +202,8 @@ int main(int argc, char** argv)
 		status = LZ_ERROR_NOT_FOUND;
 		goto cleanup;
 	}
+
+	CSE_LOG_INFO("Starting %s CSE deploy...", productName);
 
 	cseStartedMutex = CreateMutexW(NULL, true, CSE_INSTANCE_MUTEX_NAME_W);
 	if (!cseStartedMutex || GetLastError() == ERROR_ALREADY_EXISTS)
@@ -196,8 +220,8 @@ int main(int argc, char** argv)
 		goto cleanup;
 	}
 
-	sprintf_s(text, MAX_TEXT_MESSAGE_SIZE, "%s CSE", productName);
-	if (LzPathCchAppend(extractionPath, LZ_MAX_PATH, text) != LZ_OK)
+	sprintf_s(tempFolderName, LZ_MAX_PATH, "%s CSE", productName);
+	if (LzPathCchAppend(extractionPath, LZ_MAX_PATH, tempFolderName) != LZ_OK)
 	{
 		CSE_LOG_ERROR("Failed to construct temp path for CSE extraction");
 		status = LZ_ERROR_UNEXPECTED;
@@ -214,6 +238,9 @@ int main(int argc, char** argv)
 		}
 	}
 
+	CSE_LOG_INFO("Extracting compressed CSE artifacts...");
+
+	ZeroMemory(&bundleOptionalContentInfo, sizeof(BundleOptionalContentInfo));
 	status = ExtractBundle(
 		extractionPath,
 		waykBinariesBitness,
@@ -224,6 +251,8 @@ int main(int argc, char** argv)
 		CSE_LOG_ERROR("Failed to extract %s resources", productName);
 		goto cleanup;
 	}
+
+	CSE_LOG_INFO("Parsing CSE config..");
 
 	cseOptions = CseOptions_New();
 	if (!cseOptions)
@@ -248,6 +277,8 @@ int main(int argc, char** argv)
 
 	if (bundleOptionalContentInfo.hasEmbeddedInstaller)
 	{
+		CSE_LOG_INFO("Preparing for embedded MSI isntall...");
+
 		msiPath[0] = '\0';
 		LzPathCchAppend(msiPath, sizeof(msiPath), extractionPath);
 		LzPathCchAppend(msiPath, sizeof(msiPath), GetInstallerFileName(waykBinariesBitness));
@@ -255,6 +286,8 @@ int main(int argc, char** argv)
 	}
 	else
 	{
+		CSE_LOG_INFO("Preparing for online MSI download and installation");
+
 		cseInstall = CseInstall_WithMsiDownload(waykNowBinaryPath);
 	}
 
@@ -343,6 +376,8 @@ int main(int argc, char** argv)
 		WaykNowConfigOption_Next(&configOption);
 	}
 
+	CSE_LOG_INFO("Starting MSI installation...");
+
 	if (CseInstall_Run(cseInstall) != CSE_INSTALL_OK)
 	{
 		CSE_LOG_ERROR("Failed to execute MSI isntallation");
@@ -361,6 +396,8 @@ int main(int argc, char** argv)
 	// Run Power Shell after installation
 	if (bundleOptionalContentInfo.hasPowerShellInitScript)
 	{
+		CSE_LOG_INFO("Starting post-install PowerShell script execution...");
+
 		psInitScriptPath[0] = '\0';
 		LzPathCchAppend(
 			psInitScriptPath,
@@ -382,7 +419,11 @@ int main(int argc, char** argv)
 		}
 	}
 
+	CSE_LOG_INFO("Removing temp files...");
+
 	status = RmDirRecursively(extractionPath);
+
+	CSE_LOG_ERROR("Successfully deployed %s CSE!", productName);
 
 cleanup:
 	if (productName)
@@ -393,6 +434,11 @@ cleanup:
 		CseOptions_Free(cseOptions);
 	if (cseInstall)
 		CseInstall_Free(cseInstall);
+
+	if (status != LZ_OK)
+	{
+		CSE_LOG_ERROR("CSE deploy failed with code %s", status);
+	}
 
 	return status;
 }

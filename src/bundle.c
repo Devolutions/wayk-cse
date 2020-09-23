@@ -1,6 +1,6 @@
 #include <cse/bundle.h>
+#include <cse/log.h>
 
-#include <stdio.h>
 #include <lizard/lizard.h>
 
 #include <resource.h>
@@ -33,21 +33,21 @@ WaykCseBundle* WaykCseBundle_Open()
 	bundle = calloc(1, sizeof(WaykCseBundle));
 	if (!bundle)
 	{
-		fwprintf(stderr, L"Can't allocate WaykCseBundle\n");
+		CSE_LOG_ERROR("Can't allocate WaykCseBundle");
 		goto cleanup;
 	}
 
 	resourceInfo = FindResourceW(NULL, MAKEINTRESOURCEW(IDR_WAYK_BUNDLE), (LPCWSTR) RT_RCDATA);
 	if (!resourceInfo)
 	{
-		fwprintf(stderr, L"Can't find Wayk Now bundle resource\n");
+		CSE_LOG_ERROR("Can't find Wayk Now bundle resource");
 		goto cleanup;
 	}
 
 	resource = LoadResource(0, resourceInfo);
 	if (!resource)
 	{
-		fwprintf(stderr, L"Can't load Wayk Now bundle resource\n");
+		CSE_LOG_ERROR("Can't load Wayk Now bundle resource");
 		goto cleanup;
 	}
 
@@ -59,13 +59,13 @@ WaykCseBundle* WaykCseBundle_Open()
 	bundle->archiveHandle = LzArchive_New();
 	if (!bundle->archiveHandle)
 	{
-		fwprintf(stderr, L"Can't create LzArchive\n");
+		CSE_LOG_ERROR("Can't create LzArchive");
 		goto cleanup;
 	}
 
 	if (LzArchive_OpenData(bundle->archiveHandle, resourceData, resourceSize) != LZ_OK)
 	{
-		fwprintf(stderr, L"Embedded bundle has invalid format\n");
+		CSE_LOG_ERROR("Embedded bundle has invalid format");
 		goto cleanup;
 	}
 
@@ -102,7 +102,7 @@ static WaykCseBundleStatus WaykCseBundle_ExtractSingleFile(
 
 	if (LzArchive_ExtractFile(ctx->archiveHandle, -1, fileName, outputPath) != LZ_OK)
 	{
-		fprintf(stderr, "Failed to extract %s from the bundle\n", fileName);
+		CSE_LOG_ERROR("Failed to extract %s from the bundle\n", fileName);
 		return WAYK_CSE_BUNDLE_MISSING_PACKAGE;
 	}
 

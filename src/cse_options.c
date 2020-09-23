@@ -1,4 +1,5 @@
 #include <cse/cse_options.h>
+#include <cse/log.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -19,18 +20,21 @@ static WaykNowConfigOption* WaykNowConfigOption_Append(WaykNowConfigOption* prev
 	WaykNowConfigOption* node = calloc(1, sizeof(WaykNowConfigOption));
 	if (!node)
 	{
+		CSE_LOG_ERROR("Allocation failed");
 		return 0;
 	}
 
 	node->key = _strdup(key);
 	if (!node->key)
 	{
+		CSE_LOG_ERROR("Failed to create config option node");
 		goto error;
 	}
 
 	node->value = _strdup(value);
 	if (!node->value)
 	{
+		CSE_LOG_ERROR("Failed to create config option node");
 		goto error;
 	}
 
@@ -85,6 +89,7 @@ static char* ToSnakeCase(const char* str)
 	char* buffer = calloc(bufferSize, sizeof(char));
 	if (!buffer)
 	{
+		CSE_LOG_ERROR("Allocation failed");
 		return 0;
 	}
 
@@ -111,6 +116,7 @@ CseOptions* CseOptions_New()
 	options->jsonRoot = lz_json_value_init_null();
 	if (!options->jsonRoot)
 	{
+		CSE_LOG_ERROR("Failed to create empty json root");
 		goto error;
 	}
 
@@ -123,11 +129,6 @@ error:
 
 void CseOptions_Free(CseOptions* ctx)
 {
-	if (!ctx)
-	{
-		return;
-	}
-
 	if (ctx->jsonRoot)
 	{
 		lz_json_value_free(ctx->jsonRoot);
@@ -154,6 +155,7 @@ static CseOptionsResult CseOptions_Process(CseOptions* ctx, JSON_Value* rootValu
 	JSON_Object* root = lz_json_value_get_object(rootValue);
 	if (!root)
 	{
+		CSE_LOG_ERROR("JSON file have invalid structure: root object is missing");
 		result = CSE_OPTIONS_INVALID_JSON;
 		goto error;
 	}
@@ -163,6 +165,7 @@ static CseOptionsResult CseOptions_Process(CseOptions* ctx, JSON_Value* rootValu
 		"install.startAfterInstall");
 	if (startAfterInstall >= 0)
 	{
+		CSE_LOG_TRACE("Found option -> install.startAfterInstall: %d", startAfterInstall);
 		ctx->startAfterInstall = startAfterInstall;
 	}
 
@@ -171,6 +174,7 @@ static CseOptionsResult CseOptions_Process(CseOptions* ctx, JSON_Value* rootValu
 		"install.createDesktopShortcut");
 	if (createDesktopShortcut >= 0)
 	{
+		CSE_LOG_TRACE("Found option -> install.createDesktopShortcut: %d", createDesktopShortcut);
 		ctx->createDesktopShortcut = createDesktopShortcut;
 	}
 	else
@@ -183,6 +187,7 @@ static CseOptionsResult CseOptions_Process(CseOptions* ctx, JSON_Value* rootValu
 		"install.createStartMenuShortcut");
 	if (createStartMenuShortcut >= 0)
 	{
+		CSE_LOG_TRACE("Found option -> install.createStartMenuShortcut: %d", createStartMenuShortcut);
 		ctx->createStartMenuShortcut = createStartMenuShortcut;
 	}
 	else
@@ -195,6 +200,7 @@ static CseOptionsResult CseOptions_Process(CseOptions* ctx, JSON_Value* rootValu
 		"postInstallScript.importWaykNowModule");
 	if (waykPsModuleImportRequired >= 0)
 	{
+		CSE_LOG_TRACE("Found option -> postInstallScript.importWaykNowModule: %d", waykPsModuleImportRequired);
 		ctx->waykPsModuleImportRequired = waykPsModuleImportRequired;
 	}
 
@@ -204,9 +210,11 @@ static CseOptionsResult CseOptions_Process(CseOptions* ctx, JSON_Value* rootValu
 		ctx->installPath = _strdup(installPath);
 		if (!ctx->installPath)
 		{
+			CSE_LOG_ERROR("Allocation failed");
 			result = CSE_OPTIONS_NOMEM;
 			goto error;
 		}
+		CSE_LOG_TRACE("Found option -> install.installPath: %s", installPath);
 	}
 
 	const char* enrollmentUrl = lz_json_object_dotget_string(root, "enrollment.url");
@@ -215,9 +223,11 @@ static CseOptionsResult CseOptions_Process(CseOptions* ctx, JSON_Value* rootValu
 		ctx->enrollmentUrl = _strdup(enrollmentUrl);
 		if (!ctx->enrollmentUrl)
 		{
+			CSE_LOG_ERROR("Allocation failed");
 			result = CSE_OPTIONS_NOMEM;
 			goto error;
 		}
+		CSE_LOG_TRACE("Found option -> enrollment.url: %s", enrollmentUrl);
 	}
 
 	const char* enrollmentToken = lz_json_object_dotget_string(root, "enrollment.token");
@@ -226,9 +236,11 @@ static CseOptionsResult CseOptions_Process(CseOptions* ctx, JSON_Value* rootValu
 		ctx->enrollmentToken = _strdup(enrollmentToken);
 		if (!ctx->enrollmentToken)
 		{
+			CSE_LOG_ERROR("Allocation failed");
 			result = CSE_OPTIONS_NOMEM;
 			goto error;
 		}
+		CSE_LOG_TRACE("Found option -> enrollment.token: %s", enrollmentToken);
 	}
 
 	JSON_Object* waykOptions = lz_json_object_get_object(root, "config");
@@ -250,6 +262,7 @@ static CseOptionsResult CseOptions_Process(CseOptions* ctx, JSON_Value* rootValu
 
 					if (!newTail)
 					{
+						CSE_LOG_ERROR("Allocation failed");
 						result = CSE_OPTIONS_NOMEM;
 						goto error;
 					}
@@ -267,6 +280,7 @@ static CseOptionsResult CseOptions_Process(CseOptions* ctx, JSON_Value* rootValu
 
 					if (!newTail)
 					{
+						CSE_LOG_ERROR("Allocation failed");
 						result = CSE_OPTIONS_NOMEM;
 						goto error;
 					}
@@ -278,6 +292,7 @@ static CseOptionsResult CseOptions_Process(CseOptions* ctx, JSON_Value* rootValu
 					char* numberBuffer = malloc(64);
 					if (!numberBuffer)
 					{
+						CSE_LOG_ERROR("Allocation failed");
 						result = CSE_OPTIONS_NOMEM;
 						goto error;
 					}
@@ -293,6 +308,7 @@ static CseOptionsResult CseOptions_Process(CseOptions* ctx, JSON_Value* rootValu
 					free(numberBuffer);
 					if (!newTail)
 					{
+						CSE_LOG_ERROR("Allocation failed");
 						result = CSE_OPTIONS_NOMEM;
 						goto error;
 					}
@@ -300,11 +316,12 @@ static CseOptionsResult CseOptions_Process(CseOptions* ctx, JSON_Value* rootValu
 					break;
 				}
 				default:{
+					CSE_LOG_ERROR("Encountered invalid json type");
 					result = CSE_OPTIONS_INVALID_JSON;
 					goto error;
 				}
 			}
-
+			CSE_LOG_TRACE("Found option -> config.%s: \"%s\"", optionsTail->key, optionsTail->value);
 			if (!optionsHead)
 			{
 				optionsHead = optionsTail;
@@ -336,6 +353,7 @@ CseOptionsResult CseOptions_LoadFromFile(CseOptions* ctx, const char* path)
 	JSON_Value* rootValue = lz_json_parse_file(path);
 	if (!rootValue)
 	{
+		CSE_LOG_ERROR("Failed to parse json file");
 		return CSE_OPTIONS_INVALID_JSON;
 	}
 
@@ -347,6 +365,7 @@ CseOptionsResult CseOptions_LoadFromString(CseOptions* ctx, const char* json)
 	JSON_Value* rootValue = lz_json_parse_string(json);
 	if (!rootValue)
 	{
+		CSE_LOG_ERROR("Failed to parse json string");
 		return CSE_OPTIONS_INVALID_JSON;
 	}
 
