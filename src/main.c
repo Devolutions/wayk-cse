@@ -49,7 +49,7 @@ static int ExtractBundle(
 		goto cleanup;
 	}
 
-	if (WaykCseBundle_ExtractWaykNowInstaller(bundle, bitness, extractionPath) != WAYK_CSE_BUNDLE_OK)
+	if (WaykCseBundle_ExtractWaykNowInstaller(bundle, bitness, extractionPath) == WAYK_CSE_BUNDLE_OK)
 	{
 		contentInfo->hasEmbeddedInstaller = true;
 	}
@@ -137,7 +137,7 @@ static CseLogLevel GetLogLevel()
 	char logLevelStr[16];
 
 	// Log settings overwritten by env variable
-	if (LzEnv_GetEnv("CSE_LOG", logLevelStr, 16) == LZ_OK)
+	if (LzEnv_GetEnv("CSE_LOG", logLevelStr, 16) >= 0)
 	{
 		if (strcmp(logLevelStr, "trace") == 0)
 		{
@@ -213,7 +213,8 @@ int main(int argc, char** argv)
 		goto cleanup;
 	}
 
-	if (LzEnv_GetTempPath(extractionPath, LZ_MAX_PATH) != LZ_OK)
+	extractionPath[0] = '\0';
+	if (LzEnv_GetTempPath(extractionPath, LZ_MAX_PATH) <= 0)
 	{
 		CSE_LOG_ERROR("Failed to get temp path");
 		status = LZ_ERROR_UNEXPECTED;
@@ -272,8 +273,8 @@ int main(int argc, char** argv)
 	}
 
 	waykNowBinaryPath[0] = '\0';
-	LzPathCchAppend(optionsPath, sizeof(optionsPath), extractionPath);
-	LzPathCchAppend(optionsPath, sizeof(optionsPath), GetWaykNowBinaryFileName(waykBinariesBitness));
+	LzPathCchAppend(waykNowBinaryPath, sizeof(waykNowBinaryPath), extractionPath);
+	LzPathCchAppend(waykNowBinaryPath, sizeof(waykNowBinaryPath), GetWaykNowBinaryFileName(waykBinariesBitness));
 
 	if (bundleOptionalContentInfo.hasEmbeddedInstaller)
 	{
@@ -361,7 +362,7 @@ int main(int argc, char** argv)
 	while (configOption)
 	{
 		if (CseInstall_SetConfigOption(
-			cseOptions,
+			cseInstall,
 			WaykNowConfigOption_GetKey(configOption),
 			WaykNowConfigOption_GetValue(configOption)) != CSE_INSTALL_OK)
 		{
@@ -437,7 +438,7 @@ cleanup:
 
 	if (status != LZ_OK)
 	{
-		CSE_LOG_ERROR("CSE deploy failed with code %s", status);
+		CSE_LOG_ERROR("CSE deploy failed with code %d", status);
 	}
 
 	return status;

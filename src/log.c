@@ -44,6 +44,11 @@ static void WriteLogInternal(LogMessageContext* ctx)
 
 void CseLog_Message(CseLogLevel level, const char *file, int line, const char *fmt, ...)
 {
+	if (!CseLog.outputFile)
+	{
+		return;
+	}
+
 	if (level >= CseLog.level)
 	{
 		LogMessageContext ctx =

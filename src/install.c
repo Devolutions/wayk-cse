@@ -6,7 +6,7 @@
 #define MAX_OPTION_NAME_SIZE 256
 #define MSI_OPTION_PREFIX "CONFIG_"
 
-#define MAX_CLI_MIN_BUFFER_SIZE 256
+#define MIN_CLI_BUFFER_SIZE 256
 
 // CreateProcessW limit (32767) + null terminator
 #define MAX_CLI_BUFFER_SIZE 32768
@@ -65,18 +65,23 @@ CseInstallResult WaykConfigOptionToMsiOption(const char* str, char* buffer, size
 
 static CseInstallResult CseInstall_EnsureCliBufferCapacity(CseInstall* ctx, size_t requiredStringSize)
 {
+	CSE_LOG_TRACE(
+		"Ensuring buffer capacity (prev %d, size: %d) for string with size %d",
+		(int)ctx->cliBufferCapacity,
+		(int)ctx->cliBufferSize,
+		(int)requiredStringSize);
 	size_t required_capacity = (ctx->cliBufferCapacity)
 		? ctx->cliBufferCapacity
-		: MAX_CLI_MIN_BUFFER_SIZE;
+		: MIN_CLI_BUFFER_SIZE;
 	while (required_capacity < (ctx->cliBufferSize + (requiredStringSize + 1)))
 	{
 		required_capacity *= 2;
-	}
 
-	if (required_capacity > MAX_CLI_BUFFER_SIZE)
-	{
-		CSE_LOG_ERROR("Command line arguments string for MSI is too long");
-		return CSE_INSTALL_TOO_BIG_CLI;
+		if (required_capacity > MAX_CLI_BUFFER_SIZE)
+		{
+			CSE_LOG_ERROR("Command line arguments string for MSI is too long");
+			return CSE_INSTALL_TOO_BIG_CLI;
+		}
 	}
 
 	if (required_capacity <= ctx->cliBufferCapacity)
@@ -111,6 +116,7 @@ static CseInstallResult CseInstall_EnsureCliBufferCapacity(CseInstall* ctx, size
 static CseInstallResult CseInstall_CliAppendString(CseInstall* ctx, const char* str)
 {
 	size_t strSize = strlen(str);
+	CSE_LOG_TRACE("Appedning CLI string with size %d", (int)strSize);
 	CseInstallResult result = CseInstall_EnsureCliBufferCapacity(ctx, strSize);
 	if (result != CSE_INSTALL_OK)
 	{
@@ -313,7 +319,7 @@ CseInstallResult CseInstall_SetConfigOption(CseInstall* ctx, const char* key, co
 		return CSE_INSTALL_NOMEM;
 	}
 
-	result = CseInstall_SetMsiOption(ctx, msiOptionName, value);
+	result = CseInstall_SetMsiOption(ctx, msiOptionName, escapedValue);
 	free(escapedValue);
 	return result;
 }
@@ -385,12 +391,14 @@ CseInstallResult CseInstall_Run(CseInstall* ctx)
 		&startupInfo,
 		&processInfo);
 
+	DWORD error = GetLastError();
+
 	if (LzIsWow64())
 		pfnWow64RevertWow64FsRedirection(wow64FsRedirectionContext);
 
 	if (processCreated != TRUE)
 	{
-		CSE_LOG_ERROR("Failed to create MSI installation process");
+		CSE_LOG_ERROR("Failed to create MSI installation process (%d)", (int)error);
 		result = CSE_INSTALL_CREATE_PROCESS_FAILED;
 		goto finalize;
 	}

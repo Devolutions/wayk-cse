@@ -54,30 +54,10 @@ fn construct_package_url(
 }
 
 fn construct_msi_url(bitness: Bitness, version: NowVersion) -> DownloadResult<Url> {
-    if let Some(local_artifacts_path) = env::var(LOCAL_ARTIFACTS_ENV_VAR).ok() {
-        let artifact_name = format!("WaykNow_{}.msi", bitness);
-        let url = Url::from_file_path(Path::new(&local_artifacts_path).join(artifact_name))
-            .map_err(|_| {
-                Error::LocalArtifactsStorageError("Local artifacts storage does not exist".to_string())
-            })?;
-        info!("Using local artifacts storage for msi download");
-        return Ok(url);
-    }
-
     construct_package_url(bitness, version, "msi")
 }
 
 fn construct_zip_url(bitness: Bitness, version: NowVersion) -> DownloadResult<Url> {
-    if let Some(local_artifacts_path) = env::var(LOCAL_ARTIFACTS_ENV_VAR).ok() {
-        let artifact_name = format!("WaykNow_{}.zip", bitness);
-        let url = Url::from_file_path(Path::new(&local_artifacts_path).join(artifact_name))
-            .map_err(|_| {
-                Error::LocalArtifactsStorageError("Local artifacts storage does not exist".to_string())
-            })?;
-        info!("Using local artifacts storage for zip download");
-        return Ok(url);
-    }
-
     construct_package_url(bitness, version, "zip")
 }
 
@@ -93,12 +73,28 @@ fn download_artifact(destination: &Path, url: &Url) -> DownloadResult<()> {
 }
 
 pub fn download_latest_zip(destination: &Path, bitness: Bitness) -> DownloadResult<()> {
+    if let Some(local_artifacts_path) = env::var(LOCAL_ARTIFACTS_ENV_VAR).ok() {
+        let artifact_name = format!("WaykNow_{}.zip", bitness);
+        let source = Path::new(&local_artifacts_path).join(artifact_name);
+        std::fs::copy(&source, destination)?;
+        info!("Using local artifacts storage for msi download ({})", source.display());
+        return Ok(());
+    }
+
     let version = get_remote_version()?;
     let url = construct_zip_url(bitness, version)?;
     download_artifact(destination, &url)
 }
 
 pub fn download_latest_msi(destination: &Path, bitness: Bitness) -> DownloadResult<()> {
+    if let Some(local_artifacts_path) = env::var(LOCAL_ARTIFACTS_ENV_VAR).ok() {
+        let artifact_name = format!("WaykNow_{}.msi", bitness);
+        let source = Path::new(&local_artifacts_path).join(artifact_name);
+        std::fs::copy(&source, destination)?;
+        info!("Using local artifacts storage for msi download ({})", source.display());
+        return Ok(());
+    }
+
     let version = get_remote_version()?;
     let url = construct_msi_url(bitness, version)?;
     download_artifact(destination, &url)

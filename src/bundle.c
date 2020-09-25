@@ -161,14 +161,14 @@ const char* GetJsonOptionsFileName()
 	return JSON_OPTIONS_FILE_NAME;
 }
 
-const char* GetInstallerFileName(WaykBinariesBitness bitness)
+const char* GetWaykNowBinaryFileName(WaykBinariesBitness bitness)
 {
 	return (bitness == WAYK_BINARIES_BITNESS_X86)
 		? WAYK_NOW_BINARY_FILE_NAME_X86
 		: WAYK_NOW_BINARY_FILE_NAME_X64;
 }
 
-const char* GetWaykNowBinaryFileName(WaykBinariesBitness bitness)
+const char* GetInstallerFileName(WaykBinariesBitness bitness)
 {
 	return (bitness == WAYK_BINARIES_BITNESS_X86)
 		? INSTALLER_FILE_NAME_X86
