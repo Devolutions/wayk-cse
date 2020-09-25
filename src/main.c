@@ -180,6 +180,7 @@ int main(int argc, char** argv)
 	char optionsPath[LZ_MAX_PATH];
 	char waykNowBinaryPath[LZ_MAX_PATH];
 	char msiPath[LZ_MAX_PATH];
+	char brandingPath[LZ_MAX_PATH];
 	char* productName = 0;
 	char* waykNowInstallationDir = 0;
 	HANDLE cseStartedMutex = 0;
@@ -309,6 +310,20 @@ int main(int argc, char** argv)
 			enrollmentToken) != CSE_INSTALL_OK)
 		{
 			CSE_LOG_ERROR("Failed to set enrollment info for MSI arguments");
+			status = LZ_ERROR_FAIL;
+			goto cleanup;
+		}
+	}
+
+	if (bundleOptionalContentInfo.hasBranding)
+	{
+		brandingPath[0] = '\0';
+		LzPathCchAppend(brandingPath, sizeof(brandingPath), extractionPath);
+		LzPathCchAppend(brandingPath, sizeof(brandingPath), GetBrandingFileName());
+
+		if (CseInstall_SetBrandingFile(cseInstall, brandingPath) != CSE_INSTALL_OK)
+		{
+			CSE_LOG_ERROR("Failed to set branding file path for MSI arguments");
 			status = LZ_ERROR_FAIL;
 			goto cleanup;
 		}

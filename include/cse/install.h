@@ -24,6 +24,7 @@ CseInstallResult CseInstall_SetInstallDirectory(CseInstall* ctx, const char* dir
 CseInstallResult CseInstall_EnableLaunchWaykNowAfterInstall(CseInstall* ctx);
 CseInstallResult CseInstall_DisableDesktopShortcut(CseInstall* ctx);
 CseInstallResult CseInstall_DisableStartMenuShortcut(CseInstall* ctx);
+CseInstallResult CseInstall_SetBrandingFile(CseInstall* ctx, const char* brandingFilePath);
 
 CseInstallResult CseInstall_Run(CseInstall* ctx);
 

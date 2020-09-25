@@ -350,6 +350,11 @@ CseInstallResult CseInstall_DisableStartMenuShortcut(CseInstall* ctx)
 	return CseInstall_SetMsiOption(ctx, "INSTALLSTARTMENUSHORTCUT", "0");
 }
 
+CseInstallResult CseInstall_SetBrandingFile(CseInstall* ctx, const char* brandingFilePath)
+{
+	return CseInstall_SetMsiOption(ctx, "BRANDING_FILE", brandingFilePath);
+}
+
 #ifdef CSE_TESTING
 
 char* CseInstall_GetCli(CseInstall* ctx)
