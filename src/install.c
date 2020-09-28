@@ -301,6 +301,61 @@ CseInstallResult CseInstall_SetEnrollmentOptions(CseInstall* ctx, const char* ur
 	return CSE_INSTALL_OK;
 }
 
+static const char* CseInstall_ReplaceValueAliases(const char* key, const char* value)
+{
+	if ((strcmp(key, "CONFIG_ACCESS_CONTROL_VIEWING") == 0) ||
+		(strcmp(key, "CONFIG_ACCESS_CONTROL_INTERACT") == 0) ||
+		(strcmp(key, "CONFIG_ACCESS_CONTROL_CLIPBOARD") == 0) ||
+		(strcmp(key, "CONFIG_ACCESS_CONTROL_FILE_TRANSFER") == 0) ||
+		(strcmp(key, "CONFIG_ACCESS_CONTROL_EXEC") == 0) ||
+		(strcmp(key, "CONFIG_ACCESS_CONTROL_CHAT") == 0))
+	{
+		if (strcmp(value, "allow") == 0) return "1";
+		else if (strcmp(value, "confirm") == 0) return "2";
+		else if (strcmp(value, "disable") == 0) return "4";
+		else return 0;
+	}
+	else if (strcmp(key, "CONFIG_LOGGING_LEVEL") == 0)
+	{
+		if (strcmp(value, "trace") == 0) return "0";
+		else if (strcmp(value, "debug") == 0) return "1";
+		else if (strcmp(value, "info") == 0) return "2";
+		else if (strcmp(value, "warn") == 0) return "3";
+		else if (strcmp(value, "error") == 0) return "4";
+		else if (strcmp(value, "fatal") == 0) return "5";
+		else if (strcmp(value, "off") == 0) return "6";
+		else return 0;
+	}
+	else if (strcmp(key, "CONFIG_QUALITY_MODE") == 0)
+	{
+		if (strcmp(value, "low") == 0) return "1";
+		else if (strcmp(value, "medium") == 0) return "2";
+		else if (strcmp(value, "high") == 0) return "3";
+		else return 0;
+	}
+	else if (strcmp(key, "CONFIG_GENERATED_PASSWORD_CHAR_SET") == 0)
+	{
+		if (strcmp(value, "numeric") == 0) return "0";
+		else if (strcmp(value, "alphanumeric") == 0) return "1";
+		else return 0;
+	}
+	else if (strcmp(key, "CONFIG_PERSONAL_PASSWORD_TYPE") == 0)
+	{
+		if (strcmp(value, "generated") == 0) return "0";
+		else if (strcmp(value, "custom") == 0) return "1";
+		else return 0;
+	}
+	else if (strcmp(key, "CONFIG_CONTROL_MODE") == 0)
+	{
+		if (strcmp(value, "both") == 0) return "0";
+		else if (strcmp(value, "client") == 0) return "1";
+		else if (strcmp(value, "server") == 0) return "2";
+		else return 0;
+	}
+
+	return value;
+};
+
 CseInstallResult CseInstall_SetConfigOption(CseInstall* ctx, const char* key, const char* value)
 {
 	CSE_LOG_TRACE("Setting MSI app config option \"%s\" to \"%s\"", key, value);
@@ -313,7 +368,14 @@ CseInstallResult CseInstall_SetConfigOption(CseInstall* ctx, const char* key, co
 		return result;
 	}
 
-	char* escapedValue = MakeEscapedArgument(value);
+	const char* msiValue = CseInstall_ReplaceValueAliases(msiOptionName, value);
+	if (!msiValue)
+	{
+		CSE_LOG_ERROR("Invalid value %s for key %s", key, value);
+		return CSE_INSTALL_INVALID_ARGS;
+	}
+
+	char* escapedValue = MakeEscapedArgument(msiValue);
 	if (!escapedValue)
 	{
 		return CSE_INSTALL_NOMEM;
