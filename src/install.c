@@ -165,7 +165,7 @@ static char* MakeEscapedArgument(const char* str)
 
 	size_t originalSize = strlen(str);
 	// allocate original size + space for escape symbols for escape
-	char* escaped = calloc(originalSize + GetQuotesCount(str) + 1, sizeof(char));
+	char* escaped = calloc(originalSize + GetQuotesCount(str) * 3 + 1, sizeof(char));
 	if (!escaped)
 	{
 		CSE_LOG_ERROR("Allocation failed");
@@ -176,6 +176,9 @@ static char* MakeEscapedArgument(const char* str)
 	{
 		if (str[i] == '"')
 		{
+			// Nested escape " => \\\"
+			escaped[resultStringSize++] = '\\';
+			escaped[resultStringSize++] = '\\';
 			escaped[resultStringSize++] = '\\';
 		}
 
@@ -192,6 +195,21 @@ static CseInstallResult CseInstall_CliAppendQuotedString(CseInstall* ctx, const 
 	CseInstallResult result = CseInstall_CliAppendChar(ctx, '"');
 	if (result != CSE_INSTALL_OK) return result;
 	result = CseInstall_CliAppendString(ctx, str);
+	if (result != CSE_INSTALL_OK) return result;
+	result = CseInstall_CliAppendChar(ctx, '"');
+	if (result != CSE_INSTALL_OK) return result;
+	return result;
+}
+
+static CseInstallResult CseInstall_CliAppendEscapeQuotedString(CseInstall* ctx, const char* str)
+{
+	CseInstallResult result = CseInstall_CliAppendChar(ctx, '\\');
+	if (result != CSE_INSTALL_OK) return result;
+	result = CseInstall_CliAppendChar(ctx, '"');
+	if (result != CSE_INSTALL_OK) return result;
+	result = CseInstall_CliAppendString(ctx, str);
+	if (result != CSE_INSTALL_OK) return result;
+	result = CseInstall_CliAppendChar(ctx, '\\');
 	if (result != CSE_INSTALL_OK) return result;
 	result = CseInstall_CliAppendChar(ctx, '"');
 	if (result != CSE_INSTALL_OK) return result;
@@ -215,6 +233,12 @@ static CseInstall* CseInstall_New(const char* waykNowExecutable, const char* msi
 	}
 
 	CseInstallResult result = CSE_INSTALL_OK;
+
+	result = CseInstall_CliAppendQuotedString(ctx, ctx->waykNowExecutable);
+	if (result != CSE_INSTALL_OK) goto error;
+	result = CseInstall_CliAppendWhitespace(ctx);
+	if (result != CSE_INSTALL_OK) goto error;
+
 	if (msiPath)
 	{
 		result = CseInstall_CliAppendString(ctx, "install-local-package");
@@ -273,11 +297,15 @@ static CseInstallResult CseInstall_SetMsiOption(CseInstall* ctx, const char* key
 	// appends CONFIG_KEY="value"
 	result = CseInstall_CliAppendWhitespace(ctx);
 	if (result != CSE_INSTALL_OK) return result;
+	result = CseInstall_CliAppendChar(ctx, '"');
+	if (result != CSE_INSTALL_OK) return result;
 	result = CseInstall_CliAppendString(ctx, key);
 	if (result != CSE_INSTALL_OK) return result;
 	result = CseInstall_CliAppendChar(ctx, '=');
 	if (result != CSE_INSTALL_OK) return result;
-	result = CseInstall_CliAppendQuotedString(ctx, value);
+	result = CseInstall_CliAppendEscapeQuotedString(ctx, value);
+	if (result != CSE_INSTALL_OK) return result;
+	result = CseInstall_CliAppendChar(ctx, '"');
 	if (result != CSE_INSTALL_OK) return result;
 
 	return CSE_INSTALL_OK;

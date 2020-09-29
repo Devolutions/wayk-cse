@@ -23,12 +23,16 @@ int all_available_options()
 		return 7;
 
 	const char* expected =
-		"install-local-package \"C:\\installer.msi\" ENROLL_DEN_URL=\"http://my-url.com\" "
-  		"ENROLL_TOKEN_ID=\"1234567890\" CONFIG_ANALYTICS_ENABLED=\"false\" "
-		"INSTALLDIR=\"D:\\wayk_install\" SUPPRESSLAUNCH=\"0\" INSTALLDESKTOPSHORTCUT=\"0\" "
-  		"INSTALLSTARTMENUSHORTCUT=\"0\"";
+		"\"C:\\wayk.exe\" install-local-package \"C:\\installer.msi\" "
+		"\"ENROLL_DEN_URL=\\\"http://my-url.com\\\"\" \"ENROLL_TOKEN_ID=\\\"1234567890\\\"\" "
+		"\"CONFIG_ANALYTICS_ENABLED=\\\"false\\\"\" \"INSTALLDIR=\\\"D:\\wayk_install\\\"\" "
+		"\"SUPPRESSLAUNCH=\\\"0\\\"\" \"INSTALLDESKTOPSHORTCUT=\\\"0\\\"\" "
+		"\"INSTALLSTARTMENUSHORTCUT=\\\"0\\\"\"";
 
-	if (strcmp(CseInstall_GetCli(install), expected) != 0)
+	const char* actual = CseInstall_GetCli(install);
+
+
+	if (strcmp(actual, expected) != 0)
 		return 8;
 
 	return 0;
@@ -44,9 +48,12 @@ int download_msi()
 		return 2;
 
 	const char* expected =
-		"install ENROLL_DEN_URL=\"http://my-url.com\" ENROLL_TOKEN_ID=\"1234567890\"";
+		"\"C:\\wayk.exe\" install \"ENROLL_DEN_URL=\\\"http://my-url.com\\\"\" "
+		"\"ENROLL_TOKEN_ID=\\\"1234567890\\\"\"";
 
-	if (strcmp(CseInstall_GetCli(install), expected) != 0)
+	const char* actual = CseInstall_GetCli(install);
+
+	if (strcmp(actual, expected) != 0)
 		return 3;
 
 	return 0;
@@ -62,9 +69,11 @@ int quoted_argument_escape()
 		return 2;
 
 	const char* expected =
-		"install CONFIG_PERSONAL_PASSWORD=\"\"";
+		"\"C:\\wayk.exe\" install \"CONFIG_PERSONAL_PASSWORD=\\\"qwe\\\\\\\"rty\\\"\"";
 
-	if (strcmp(CseInstall_GetCli(install), expected) != 0)
+	const char* actual = CseInstall_GetCli(install);
+
+	if (strcmp(actual, expected) != 0)
 		return 3;
 
 	return 0;
@@ -74,5 +83,6 @@ int main()
 {
 	assert_test_succeeded(all_available_options());
 	assert_test_succeeded(download_msi());
+	assert_test_succeeded(quoted_argument_escape());
 	return 0;
 }
