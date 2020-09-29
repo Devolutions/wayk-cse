@@ -1,8 +1,5 @@
 use std::fmt::Write;
 
-
-
-
 #[derive(Debug, Clone, Copy)]
 pub struct NowVersion {
     quad: [u32; 4],

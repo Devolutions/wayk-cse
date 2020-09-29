@@ -1,9 +1,4 @@
-use std::{
-    env,
-    fs::File,
-    path::Path,
-    io
-};
+use std::{env, fs::File, io, path::Path};
 
 use clap::{App as ArgParser, Arg, ArgMatches};
 use log::{info, warn};
@@ -79,9 +74,7 @@ impl WaykCsePatcher {
                 )
             })?;
             bundle.add_bundle_package(
-                BundlePackageType::WaykBinaries {
-                    bitness: *bitness,
-                },
+                BundlePackageType::WaykBinaries { bitness: *bitness },
                 &artifacts_zip_path,
             );
 
@@ -94,9 +87,7 @@ impl WaykCsePatcher {
                     format!("Failed to download MSI for {} architecture", bitness)
                 })?;
                 bundle.add_bundle_package(
-                    BundlePackageType::InstallationMsi {
-                        bitness: *bitness,
-                    },
+                    BundlePackageType::InstallationMsi { bitness: *bitness },
                     &msi_path,
                 );
             }

@@ -1,13 +1,9 @@
-use std::{
-    fs, io,
-    path::{Path},
-    env,
-};
+use std::{env, fs, io, path::Path};
 
+use log::info;
 use regex::Regex;
 use thiserror::Error;
 use url::Url;
-use log::info;
 
 use crate::{bundle::Bitness, fs_util::remove_file_after_reboot, version::NowVersion};
 
@@ -73,11 +69,14 @@ fn download_artifact(destination: &Path, url: &Url) -> DownloadResult<()> {
 }
 
 pub fn download_latest_zip(destination: &Path, bitness: Bitness) -> DownloadResult<()> {
-    if let Some(local_artifacts_path) = env::var(LOCAL_ARTIFACTS_ENV_VAR).ok() {
+    if let Ok(local_artifacts_path) = env::var(LOCAL_ARTIFACTS_ENV_VAR) {
         let artifact_name = format!("WaykNow_{}.zip", bitness);
         let source = Path::new(&local_artifacts_path).join(artifact_name);
         std::fs::copy(&source, destination)?;
-        info!("Using local artifacts storage for msi download ({})", source.display());
+        info!(
+            "Using local artifacts storage for msi download ({})",
+            source.display()
+        );
         return Ok(());
     }
 
@@ -87,11 +86,14 @@ pub fn download_latest_zip(destination: &Path, bitness: Bitness) -> DownloadResu
 }
 
 pub fn download_latest_msi(destination: &Path, bitness: Bitness) -> DownloadResult<()> {
-    if let Some(local_artifacts_path) = env::var(LOCAL_ARTIFACTS_ENV_VAR).ok() {
+    if let Ok(local_artifacts_path) = env::var(LOCAL_ARTIFACTS_ENV_VAR) {
         let artifact_name = format!("WaykNow_{}.msi", bitness);
         let source = Path::new(&local_artifacts_path).join(artifact_name);
         std::fs::copy(&source, destination)?;
-        info!("Using local artifacts storage for msi download ({})", source.display());
+        info!(
+            "Using local artifacts storage for msi download ({})",
+            source.display()
+        );
         return Ok(());
     }
 

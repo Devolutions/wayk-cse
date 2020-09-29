@@ -1,6 +1,4 @@
-use std::{
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use rcedit::{RceditResult, ResourceUpdater};
 use thiserror::Error;

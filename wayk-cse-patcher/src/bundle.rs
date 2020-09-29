@@ -6,10 +6,8 @@ use std::{
     process::Command,
 };
 
-
 use tempfile::Builder as TempFileBuilder;
 use thiserror::Error;
-
 
 use crate::artifacts_bundle::{self, ArtifactsBundle};
 
@@ -138,9 +136,6 @@ fn compress_bundle(unpacked_bundle_path: &Path, output_path: &Path) -> BundlePac
 #[cfg(test)]
 mod tests {
     use super::*;
-    
-
-    
 
     #[test]
     fn test_bundle_packing() {
