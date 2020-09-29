@@ -149,17 +149,9 @@ void CseOptions_Free(CseOptions* ctx)
 	free(ctx);
 }
 
-static CseOptionsResult CseOptions_Process(CseOptions* ctx, JSON_Value* rootValue)
-{
-	CseOptionsResult result = CSE_OPTIONS_OK;
-	JSON_Object* root = lz_json_value_get_object(rootValue);
-	if (!root)
-	{
-		CSE_LOG_ERROR("JSON file have invalid structure: root object is missing");
-		result = CSE_OPTIONS_INVALID_JSON;
-		goto error;
-	}
 
+static CseOptionsResult CseOptions_ParseCseKnownCseOptions(CseOptions* ctx, JSON_Object* root)
+{
 	int startAfterInstall = lz_json_object_dotget_boolean(
 		root,
 		"install.startAfterInstall");
@@ -211,8 +203,7 @@ static CseOptionsResult CseOptions_Process(CseOptions* ctx, JSON_Value* rootValu
 		if (!ctx->installPath)
 		{
 			CSE_LOG_ERROR("Allocation failed");
-			result = CSE_OPTIONS_NOMEM;
-			goto error;
+			return CSE_OPTIONS_NOMEM;
 		}
 		CSE_LOG_TRACE("Found option -> install.installPath: %s", installPath);
 	}
@@ -224,8 +215,7 @@ static CseOptionsResult CseOptions_Process(CseOptions* ctx, JSON_Value* rootValu
 		if (!ctx->enrollmentUrl)
 		{
 			CSE_LOG_ERROR("Allocation failed");
-			result = CSE_OPTIONS_NOMEM;
-			goto error;
+			return CSE_OPTIONS_NOMEM;
 		}
 		CSE_LOG_TRACE("Found option -> enrollment.url: %s", enrollmentUrl);
 	}
@@ -237,102 +227,140 @@ static CseOptionsResult CseOptions_Process(CseOptions* ctx, JSON_Value* rootValu
 		if (!ctx->enrollmentToken)
 		{
 			CSE_LOG_ERROR("Allocation failed");
-			result = CSE_OPTIONS_NOMEM;
-			goto error;
+			return CSE_OPTIONS_NOMEM;
 		}
 		CSE_LOG_TRACE("Found option -> enrollment.token: %s", enrollmentToken);
 	}
+	return CSE_OPTIONS_OK;
+}
+
+static CseOptionsResult CseOptions_ParseWaykConfigOptions(CseOptions* ctx, JSON_Object* root)
+{
+	CseOptionsResult result = CSE_OPTIONS_OK;
 
 	JSON_Object* waykOptions = lz_json_object_get_object(root, "config");
 	WaykNowConfigOption* optionsHead = 0;
 	WaykNowConfigOption* optionsTail = 0;
-	if (waykOptions)
+
+	if (!waykOptions)
 	{
-		for (int i = 0; i < lz_json_object_get_count(waykOptions); ++i)
+		return CSE_OPTIONS_OK;
+	}
+
+	for (int i = 0; i < lz_json_object_get_count(waykOptions); ++i)
+	{
+		JSON_Value* currentValue = lz_json_object_get_value_at(waykOptions, i);
+		switch (lz_json_value_get_type(currentValue))
 		{
-			JSON_Value* currentValue = lz_json_object_get_value_at(waykOptions, i);
-			switch (lz_json_value_get_type(currentValue))
+			case JSONString:
 			{
-				case JSONString:
-				{
-					WaykNowConfigOption* newTail = WaykNowConfigOption_Append(
-						optionsTail,
-						lz_json_object_get_name(waykOptions, i),
-						lz_json_value_get_string(currentValue));
+				WaykNowConfigOption* newTail = WaykNowConfigOption_Append(
+					optionsTail,
+					lz_json_object_get_name(waykOptions, i),
+					lz_json_value_get_string(currentValue));
 
-					if (!newTail)
-					{
-						CSE_LOG_ERROR("Allocation failed");
-						result = CSE_OPTIONS_NOMEM;
-						goto error;
-					}
-					optionsTail = newTail;
-					break;
-				}
-				case JSONBoolean:
+				if (!newTail)
 				{
-					const char* value = lz_json_value_get_boolean(currentValue) ? "true" : "false";
-
-					WaykNowConfigOption* newTail = WaykNowConfigOption_Append(
-						optionsTail,
-						lz_json_object_get_name(waykOptions, i),
-						value);
-
-					if (!newTail)
-					{
-						CSE_LOG_ERROR("Allocation failed");
-						result = CSE_OPTIONS_NOMEM;
-						goto error;
-					}
-					optionsTail = newTail;
-					break;
-				}
-				case JSONNumber:
-				{
-					char* numberBuffer = malloc(64);
-					if (!numberBuffer)
-					{
-						CSE_LOG_ERROR("Allocation failed");
-						result = CSE_OPTIONS_NOMEM;
-						goto error;
-					}
-					sprintf_s(
-						numberBuffer,
-						64,
-						"%d",
-						(int)lz_json_value_get_number(currentValue));
-					WaykNowConfigOption* newTail = WaykNowConfigOption_Append(
-						optionsTail,
-						lz_json_object_get_name(waykOptions, i),
-						numberBuffer);
-					free(numberBuffer);
-					if (!newTail)
-					{
-						CSE_LOG_ERROR("Allocation failed");
-						result = CSE_OPTIONS_NOMEM;
-						goto error;
-					}
-					optionsTail = newTail;
-					break;
-				}
-				default:{
-					CSE_LOG_ERROR("Encountered invalid json type");
-					result = CSE_OPTIONS_INVALID_JSON;
+					CSE_LOG_ERROR("Allocation failed");
+					result = CSE_OPTIONS_NOMEM;
 					goto error;
 				}
+				optionsTail = newTail;
+				break;
 			}
-			CSE_LOG_TRACE("Found option -> config.%s: \"%s\"", optionsTail->key, optionsTail->value);
-			if (!optionsHead)
+			case JSONBoolean:
 			{
-				optionsHead = optionsTail;
+				const char* value = lz_json_value_get_boolean(currentValue) ? "true" : "false";
+
+				WaykNowConfigOption* newTail = WaykNowConfigOption_Append(
+					optionsTail,
+					lz_json_object_get_name(waykOptions, i),
+					value);
+
+				if (!newTail)
+				{
+					CSE_LOG_ERROR("Allocation failed");
+					result = CSE_OPTIONS_NOMEM;
+					goto error;
+				}
+				optionsTail = newTail;
+				break;
+			}
+			case JSONNumber:
+			{
+				char* numberBuffer = malloc(64);
+				if (!numberBuffer)
+				{
+					CSE_LOG_ERROR("Allocation failed");
+					result = CSE_OPTIONS_NOMEM;
+					goto error;
+				}
+				sprintf_s(
+					numberBuffer,
+					64,
+					"%d",
+					(int)lz_json_value_get_number(currentValue));
+				WaykNowConfigOption* newTail = WaykNowConfigOption_Append(
+					optionsTail,
+					lz_json_object_get_name(waykOptions, i),
+					numberBuffer);
+				free(numberBuffer);
+				if (!newTail)
+				{
+					CSE_LOG_ERROR("Allocation failed");
+					result = CSE_OPTIONS_NOMEM;
+					goto error;
+				}
+				optionsTail = newTail;
+				break;
+			}
+			default:{
+				CSE_LOG_ERROR("Encountered invalid json type");
+				result = CSE_OPTIONS_INVALID_JSON;
+				goto error;
 			}
 		}
-
-		if (optionsHead)
+		CSE_LOG_TRACE("Found option -> config.%s: \"%s\"", optionsTail->key, optionsTail->value);
+		if (!optionsHead)
 		{
-			ctx->waykOptions = optionsHead;
+			optionsHead = optionsTail;
 		}
 	}
+
+	if (optionsHead)
+	{
+		ctx->waykOptions = optionsHead;
+	}
+
+	return CSE_OPTIONS_OK;
+
+error:
+	if (optionsHead)
+	{
+		WaykNowConfigOption_FreeRecursive(optionsHead);
+	}
+
+	return result;
+}
+
+static CseOptionsResult CseOptions_Process(CseOptions* ctx, JSON_Value* rootValue)
+{
+	CseOptionsResult result = CSE_OPTIONS_OK;
+	JSON_Object* root = lz_json_value_get_object(rootValue);
+	if (!root)
+	{
+		CSE_LOG_ERROR("JSON file have invalid structure: root object is missing");
+		result = CSE_OPTIONS_INVALID_JSON;
+		goto error;
+	}
+
+	result = CseOptions_ParseCseKnownCseOptions(ctx, root);
+	if (result != CSE_OPTIONS_OK)
+		goto error;
+
+	result = CseOptions_ParseWaykConfigOptions(ctx, root);
+	if (result != CSE_OPTIONS_OK)
+		goto error;
 
 	return CSE_OPTIONS_OK;
 
@@ -340,10 +368,6 @@ error:
 	if (rootValue)
 	{
 		lz_json_value_free(rootValue);
-	}
-	if (optionsHead)
-	{
-		WaykNowConfigOption_FreeRecursive(optionsHead);
 	}
 	return result;
 }

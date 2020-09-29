@@ -14,6 +14,7 @@ int RunCmdCommand(const char* command);
 
 int RunWaykNowInitScript(const char* waykModulePath, const char* initScriptPath);
 char* GetPowerShellModulePath(char* waykNowPath);
+char* GetWaykInstallationDir();
 
 int RmDirRecursively(const char* path);
 

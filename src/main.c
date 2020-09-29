@@ -73,65 +73,6 @@ cleanup:
 	return status;
 }
 
-char* GetWaykInstallationDir()
-{
-	wchar_t* installPathW = 0;
-	char* installPath = 0;
-	DWORD installPathSize = LZ_MAX_PATH;
-	LSTATUS keyOpenStatus = ERROR_PATH_NOT_FOUND;
-	HKEY regKey;
-	REGSAM regKeyAccess = KEY_READ;
-	if (LzIsWow64())
-	{
-		regKeyAccess |= KEY_WOW64_64KEY;
-	}
-
-	keyOpenStatus = RegOpenKeyExW(
-		HKEY_LOCAL_MACHINE,
-		L"SOFTWARE\\Wayk\\WaykNow",
-		0,
-		regKeyAccess,
-		&regKey);
-	if (keyOpenStatus != ERROR_SUCCESS)
-	{
-		CSE_LOG_WARN("Failed to open Wayk Now registry key");
-		goto cleanup;
-	}
-
-	installPathW = malloc(LZ_MAX_PATH);
-	if (!installPathW)
-	{
-		CSE_LOG_WARN("Failed to allocate InstallPath buffer");
-	}
-	if (RegQueryValueExW(
-		regKey,
-		L"InstallDir",
-		0,
-		0,
-		(LPBYTE)installPathW,
-		&installPathSize) != ERROR_SUCCESS)
-	{
-		CSE_LOG_WARN("Failed to read InstallPath registry value");
-	}
-	else
-	{
-		installPath = LzUnicode_UTF16toUTF8_dup(installPathW);
-		CSE_LOG_DEBUG("Wayk Now installation dir: %s", installPath);
-	}
-
-cleanup:
-	if (keyOpenStatus == ERROR_SUCCESS)
-	{
-		RegCloseKey(regKey);
-	}
-	if (installPathW)
-	{
-		free(installPathW);
-	}
-
-	return installPath;
-}
-
 static CseLogLevel GetLogLevel()
 {
 	char logLevelStr[16];
