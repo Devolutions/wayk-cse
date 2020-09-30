@@ -11,8 +11,10 @@
 #define INSTALLER_FILE_NAME_X86 "Installer_x86.msi"
 #define INSTALLER_FILE_NAME_X64 "Installer_x64.msi"
 
-#define WAYK_NOW_BINARY_FILE_NAME_X86 "WaykNow_x86.exe"
-#define WAYK_NOW_BINARY_FILE_NAME_X64 "WaykNow_x64.exe"
+// NOTE" WaykNow executable should not have "WaykNow" in its name, because
+// in this case it will be killed by the MSI isntaller
+#define WAYK_NOW_BINARY_FILE_NAME_X86 "Bootstrapper_x86.exe"
+#define WAYK_NOW_BINARY_FILE_NAME_X64 "Bootstrapper_x64.exe"
 
 #define JSON_OPTIONS_FILE_NAME "options.json"
 
