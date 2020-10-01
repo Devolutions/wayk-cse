@@ -8,6 +8,8 @@
 
 #include <lizard/LzJson.h>
 
+#define CSE_LOG_TAG "CseOptions"
+
 struct wayk_now_config_option
 {
 	char* key;

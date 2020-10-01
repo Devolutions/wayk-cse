@@ -5,6 +5,8 @@
 
 #include <resource.h>
 
+#define CSE_LOG_TAG "WaykCseBundle"
+
 #define BRANDING_FILE_NAME "branding.zip"
 #define POWER_SHELL_INIT_SCRIPT_FILE_NAME "init.ps1"
 

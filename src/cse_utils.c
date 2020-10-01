@@ -4,6 +4,8 @@
 #include <resource.h>
 #include <cse/log.h>
 
+#define CSE_LOG_TAG "CseUtils"
+
 #define MAX_COMMAND_LINE 8192
 
 typedef enum

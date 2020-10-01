@@ -9,6 +9,8 @@
 #include <cse/log.h>
 #include <cse/cse_options.h>
 
+#define CSE_LOG_TAG "Cse"
+
 #define _CSE_APP_ERROR_BASE (-0x10000000)
 #define LZ_ERROR_BUNDLE_EXTRACTION (_CSE_APP_ERROR_BASE - 0)
 #define LZ_ERROR_MULTIPLE_CSE_INSTANCES (_CSE_APP_ERROR_BASE - 1)

@@ -3,6 +3,8 @@
 
 #include <lizard/lizard.h>
 
+#define CSE_LOG_TAG "CseInstall"
+
 #define MAX_OPTION_NAME_SIZE 256
 #define MSI_OPTION_PREFIX "CONFIG_"
 
