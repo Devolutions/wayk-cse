@@ -429,17 +429,17 @@ CseInstallResult CseInstall_SetInstallDirectory(CseInstall* ctx, const char* dir
 
 CseInstallResult CseInstall_EnableLaunchWaykNowAfterInstall(CseInstall* ctx)
 {
-	return CseInstall_SetMsiOption(ctx, "SUPPRESSLAUNCH", "0");
+	return CseInstall_SetMsiOption(ctx, "START_AFTER_INSTALL", "1");
 }
 
 CseInstallResult CseInstall_DisableDesktopShortcut(CseInstall* ctx)
 {
-	return CseInstall_SetMsiOption(ctx, "INSTALLDESKTOPSHORTCUT", "0");
+	return CseInstall_SetMsiOption(ctx, "DISABLE_DESKTOP_SHORTCUT", "1");
 }
 
 CseInstallResult CseInstall_DisableStartMenuShortcut(CseInstall* ctx)
 {
-	return CseInstall_SetMsiOption(ctx, "INSTALLSTARTMENUSHORTCUT", "0");
+	return CseInstall_SetMsiOption(ctx, "DISABLE_START_MENU_SHORTCUT", "1");
 }
 
 CseInstallResult CseInstall_SetBrandingFile(CseInstall* ctx, const char* brandingFilePath)
