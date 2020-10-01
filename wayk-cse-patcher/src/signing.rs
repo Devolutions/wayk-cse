@@ -4,16 +4,25 @@ use std::{
 };
 
 use log::warn;
+use thiserror::Error;
 
-use crate::error::{WaykCseError, WaykCseResult};
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("Signtool executaion failed: ({0})")]
+    SigntoolFailed(String),
+    #[error("Signtool was not found")]
+    SigntoolNotFound,
+}
 
-pub fn sign_executable(executable_path: &Path, cert_name: &str) -> WaykCseResult<()> {
+pub type SigningResult<T> = Result<T, Error>;
+
+pub fn sign_executable(executable_path: &Path, cert_name: &str) -> SigningResult<()> {
     let signtool_path = get_signtool_path()?;
 
     let signtool_output = Command::new(&signtool_path)
         .args(make_signtool_args(executable_path, cert_name))
         .output()
-        .map_err(|_| WaykCseError::SigningFailed("Can't execute 'signtool' command".into()))?;
+        .map_err(|_| Error::SigntoolFailed("Can't execute 'signtool' command".into()))?;
 
     match signtool_output.status.code().unwrap() {
         0 => {}
@@ -24,7 +33,7 @@ pub fn sign_executable(executable_path: &Path, cert_name: &str) -> WaykCseResult
         _ => {
             let stderr = std::str::from_utf8(&signtool_output.stderr).unwrap_or("<INVALID STDERR>");
 
-            return Err(WaykCseError::SigningFailed(format!(
+            return Err(Error::SigntoolFailed(format!(
                 "Failed to sign the binary -> {}",
                 stderr
             )));
@@ -51,11 +60,8 @@ pub fn make_signtool_args(file_path: &Path, cert_name: &str) -> Vec<String> {
     args
 }
 
-pub fn get_signtool_path() -> WaykCseResult<PathBuf> {
-    which::which("signtool")
-        .map_err(|e| WaykCseError::InvalidEnvironment(
-            format!("Failed to get signtool path -> {}", e)
-        ))
+pub fn get_signtool_path() -> SigningResult<PathBuf> {
+    which::which("signtool").map_err(|_| Error::SigntoolNotFound)
 }
 
 #[cfg(test)]

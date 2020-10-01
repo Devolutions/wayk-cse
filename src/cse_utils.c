@@ -1,8 +1,10 @@
 #include <cse/cse_utils.h>
-
 #include <windows.h>
-
 #include <lizard/lizard.h>
+#include <resource.h>
+#include <cse/log.h>
+
+#define CSE_LOG_TAG "CseUtils"
 
 #define MAX_COMMAND_LINE 8192
 
@@ -144,23 +146,8 @@ char* GetWaykCseOption(int key)
 	return _strdup(optionValue);
 }
 
-char* GetWaykCsePathOption(int key)
-{
-	char* expandedPath = 0;
-
-	char* originalOption = GetWaykCseOption(key);
-	if (!originalOption)
-	{
-		goto cleanup;
-	}
-
-	expandedPath = ExpandEnvironmentVariables(originalOption);
-
-cleanup:
-	if (originalOption)
-		free(originalOption);
-
-	return expandedPath;
+char* GetProductName() {
+	return GetWaykCseOption(IDS_WAYK_PRODUCT_NAME);
 }
 
 int GetPowerShellPath(char* pathBuffer, int pathBufferSize)
@@ -300,13 +287,25 @@ int RunWaykNowInitScript(const char* waykModulePath, const char* initScriptPath)
 
 	char powerShellCommand[LZ_MAX_PATH];
 
-	bytesWritten = snprintf(
-		powerShellCommand,
-		sizeof(powerShellCommand),
-		"Import-Module -Name '%s'; .'%s'",
-		waykModulePath,
-		initScriptPath
-	);
+	if (waykModulePath)
+	{
+		bytesWritten = snprintf(
+			powerShellCommand,
+			sizeof(powerShellCommand),
+			"Import-Module -Name '%s'; .'%s'",
+			waykModulePath,
+			initScriptPath
+		);
+	}
+	else
+	{
+		bytesWritten = snprintf(
+			powerShellCommand,
+			sizeof(powerShellCommand),
+			".'%s'",
+			initScriptPath
+		);
+	}
 
 	if (bytesWritten < 0 || bytesWritten >= sizeof(powerShellCommand))
 	{
@@ -344,4 +343,102 @@ int RmDirRecursively(const char* path)
 
 cleanup:
 	return result;
+}
+
+char* GetPowerShellModulePath(char* waykNowPath)
+{
+	char path[LZ_MAX_PATH];
+	path[0] = '\0';
+	LzPathCchAppend(path, LZ_MAX_PATH, waykNowPath);
+	LzPathCchAppend(path, LZ_MAX_PATH, "PowerShell\\Modules\\WaykNow");
+	return _strdup(path);
+}
+
+int IsElevated()
+{
+	int isElevated = 0;
+	HANDLE hToken = 0;
+	if (OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken))
+	{
+		TOKEN_ELEVATION elevationState;
+		DWORD cbSize = sizeof(TOKEN_ELEVATION);
+		if(GetTokenInformation(
+			hToken,
+			TokenElevation,
+			&elevationState,
+			sizeof(elevationState),
+			&cbSize))
+		{
+			if (elevationState.TokenIsElevated == TRUE)
+			{
+				isElevated = 1;
+			}
+		}
+	}
+
+	if(hToken)
+	{
+		CloseHandle(hToken);
+	}
+
+	return isElevated;
+}
+
+char* GetWaykInstallationDir()
+{
+	wchar_t* installPathW = 0;
+	char* installPath = 0;
+	DWORD installPathSize = LZ_MAX_PATH;
+	LSTATUS keyOpenStatus = ERROR_PATH_NOT_FOUND;
+	HKEY regKey;
+	REGSAM regKeyAccess = KEY_READ;
+	if (LzIsWow64())
+	{
+		regKeyAccess |= KEY_WOW64_64KEY;
+	}
+
+	keyOpenStatus = RegOpenKeyExW(
+		HKEY_LOCAL_MACHINE,
+		L"SOFTWARE\\Wayk\\WaykNow",
+		0,
+		regKeyAccess,
+		&regKey);
+	if (keyOpenStatus != ERROR_SUCCESS)
+	{
+		CSE_LOG_WARN("Failed to open Wayk Now registry key");
+		goto cleanup;
+	}
+
+	installPathW = malloc(LZ_MAX_PATH);
+	if (!installPathW)
+	{
+		CSE_LOG_WARN("Failed to allocate InstallPath buffer");
+	}
+	if (RegQueryValueExW(
+		regKey,
+		L"InstallDir",
+		0,
+		0,
+		(LPBYTE)installPathW,
+		&installPathSize) != ERROR_SUCCESS)
+	{
+		CSE_LOG_WARN("Failed to read InstallPath registry value");
+	}
+	else
+	{
+		installPath = LzUnicode_UTF16toUTF8_dup(installPathW);
+		CSE_LOG_DEBUG("Wayk Now installation dir: %s", installPath);
+	}
+
+	cleanup:
+	if (keyOpenStatus == ERROR_SUCCESS)
+	{
+		RegCloseKey(regKey);
+	}
+	if (installPathW)
+	{
+		free(installPathW);
+	}
+
+	return installPath;
 }

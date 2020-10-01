@@ -1,0 +1,1 @@
+{"enrollment":{"url":"wss://waykden.my","enrollmentToken":"12332341234asdf"},"branding":{"embedded":true},"config":{"autoUpdateEnabled":true,"autoLaunchOnUserLogon":false},"install":{"embedMsi":true,"architecure":"all","startAfterInsatll":true},"postInstallScript":{"importWaykNowModule":true,"embedded":true}}

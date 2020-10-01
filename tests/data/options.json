@@ -1,0 +1,21 @@
+{
+  "enrollment":
+  {
+    "url": "test.com",
+    "token": "123"
+  },
+  "install":
+  {
+    "startAfterInstall": true
+  },
+  "postInstallScript":
+  {
+    "importWaykNowModule": true
+  },
+  "config": {
+    "autoUpdateEnabled": true,
+    "autoLaunchOnUserLogon": false,
+    "generatedPasswordLength": 13,
+    "loggingFilter": "test"
+  }
+}

@@ -6,13 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-void assert_test_succeeded(int returnCode)
-{
-    if (returnCode != 0)
-    {
-        exit(returnCode);
-    }
-}
+#include "test_utils.h"
+
 
 int test_without_variables()
 {

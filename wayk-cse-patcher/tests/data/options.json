@@ -1,0 +1,25 @@
+{
+    "enrollment": {
+        "url": "wss://waykden.my",
+        "enrollmentToken": "12332341234asdf"
+    },
+	"branding": {
+		"path": "branding.zip"
+	},
+	"signing": {
+		"certName": "myCert"
+	},
+	"config": {
+        "autoUpdateEnabled": true,
+        "autoLaunchOnUserLogon": false
+    },
+	"install": {
+		"embedMsi": true,
+		"architecure": "all",
+		"startAfterInsatll": true
+	},
+	"postInstallScript": {
+		"path": "script.ps1",
+		"importWaykNowModule": true
+	}	
+}

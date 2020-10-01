@@ -1,43 +1,27 @@
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use rcedit::{RceditResult, ResourceUpdater};
-
-use crate::error::{WaykCseError, WaykCseResult};
+use thiserror::Error;
 
 const WAYK_BUNDLE_RESOURCE_ID: u32 = 102;
+const PRODUCT_NAME_RESOURCE_ID: u32 = 103;
 
-#[derive(PartialEq, Eq, Hash, Copy, Clone)]
-pub enum WaykCseOption {
-    EnableUnattendedService,
-    WaykDataPath,
-    WaykSystemPath,
-    WaykExtractionPath,
-    WaykProductName,
-    EnableWaykAutoClean,
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("Failed to load executable ({0})")]
+    ExecutableLoadFailed(String),
+    #[error("Failed to patch resource ({0})")]
+    ResourcePatchingFailed(String),
 }
 
-impl WaykCseOption {
-    pub fn get_string_resource_id(self) -> u32 {
-        match self {
-            WaykCseOption::EnableUnattendedService => 103,
-            WaykCseOption::WaykDataPath => 104,
-            WaykCseOption::WaykSystemPath => 105,
-            WaykCseOption::WaykExtractionPath => 106,
-            WaykCseOption::WaykProductName => 107,
-            WaykCseOption::EnableWaykAutoClean => 108,
-        }
-    }
-}
+pub type ResourcePathcerResult<T> = Result<T, Error>;
 
 pub struct ResourcePatcher {
     resource_updater: ResourceUpdater,
     original_binary_path: Option<PathBuf>,
     icon_path: Option<PathBuf>,
     wayk_bundle_path: Option<PathBuf>,
-    wayk_cse_options: HashMap<WaykCseOption, String>,
+    product_name: Option<String>,
 }
 
 impl ResourcePatcher {
@@ -47,7 +31,7 @@ impl ResourcePatcher {
             original_binary_path: None,
             icon_path: None,
             wayk_bundle_path: None,
-            wayk_cse_options: HashMap::new(),
+            product_name: None,
         }
     }
 
@@ -66,25 +50,27 @@ impl ResourcePatcher {
         self
     }
 
-    pub fn set_wayk_cse_option(&mut self, option: WaykCseOption, value: &str) -> &mut Self {
-        self.wayk_cse_options.insert(option, value.into());
+    pub fn set_product_name(&mut self, name: &str) -> &mut Self {
+        self.product_name = Some(name.to_string());
         self
     }
 
-    pub fn patch(&mut self) -> WaykCseResult<()> {
+    pub fn patch(&mut self) -> ResourcePathcerResult<()> {
         if self.original_binary_path.is_none() {
-            return Err(WaykCseError::ResourcePatchingFailed(
-                "Original binary path is not set".into(),
+            return Err(Error::ExecutableLoadFailed(
+                "original binary path is not set".to_string(),
             ));
         }
 
-        check_rcedit(
-            self.resource_updater.load(&self.original_binary_path.as_ref().unwrap()),
-            "WaykDummy load failed",
-        )?;
+        self.resource_updater
+            .load(&self.original_binary_path.as_ref().unwrap())
+            .map_err(|e| Error::ExecutableLoadFailed(format!("{}", e)))?;
 
         if let Some(icon_path) = self.icon_path.as_ref() {
-            check_rcedit(self.resource_updater.set_icon(icon_path), "Icon patching failed")?;
+            check_rcedit(
+                self.resource_updater.set_icon(icon_path),
+                "Icon patching failed",
+            )?;
         }
 
         if let Some(wayk_bundle_path) = self.wayk_bundle_path.as_ref() {
@@ -95,15 +81,18 @@ impl ResourcePatcher {
             )?;
         }
 
-        for (option, value) in &self.wayk_cse_options {
-            let id = option.get_string_resource_id();
+        if let Some(product_name) = self.product_name.as_ref() {
             check_rcedit(
-                self.resource_updater.set_string(id, &value),
-                &format!("Failed to set resource with id {}", id),
+                self.resource_updater
+                    .set_string(PRODUCT_NAME_RESOURCE_ID, product_name),
+                "Failed to patch product name",
             )?;
         }
 
-        check_rcedit(self.resource_updater.commit(), "Failed to commit patched binary")?;
+        check_rcedit(
+            self.resource_updater.commit(),
+            "Failed to commit patched binary",
+        )?;
 
         Ok(())
     }
@@ -115,6 +104,6 @@ impl Default for ResourcePatcher {
     }
 }
 
-fn check_rcedit<T>(result: RceditResult<T>, message: &str) -> WaykCseResult<T> {
-    result.map_err(|e| WaykCseError::ResourcePatchingFailed(format!("{}: {}", message, e)))
+fn check_rcedit<T>(result: RceditResult<T>, message: &str) -> ResourcePathcerResult<T> {
+    result.map_err(|_| Error::ResourcePatchingFailed(message.to_string()))
 }
