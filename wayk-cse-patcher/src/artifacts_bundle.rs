@@ -34,7 +34,7 @@ impl ArtifactsBundle {
         &mut self,
         writer: &mut W,
     ) -> ArtifactsBundleResult<u64> {
-        const WAYK_NOW_FILE_NAME: &str = "WaykNow.exe";
+        const WAYK_NOW_FILE_NAME: &str = "WaykAgent.exe";
 
         let mut compressed = self
             .archive

@@ -34,27 +34,21 @@ impl Error {
 
 pub type DownloadResult<T> = Result<T, Error>;
 
-fn construct_package_url(
-    bitness: Bitness,
-    version: NowVersion,
-    extension: &str,
-) -> DownloadResult<Url> {
-    let url = Url::parse(&format!(
-        "https://cdn.devolutions.net/download/Wayk/{0}/WaykNow-{1}-{0}.{2}",
-        version.as_quad(),
-        bitness,
-        extension
-    ))?;
-
-    Ok(url)
-}
 
 fn construct_msi_url(bitness: Bitness, version: NowVersion) -> DownloadResult<Url> {
-    construct_package_url(bitness, version, "msi")
+    Ok(Url::parse(&format!(
+        "https://cdn.devolutions.net/download/Wayk/{0}/WaykAgent-{1}-{0}.msi",
+        version.as_quad(),
+        bitness
+    ))?)
 }
 
 fn construct_zip_url(bitness: Bitness, version: NowVersion) -> DownloadResult<Url> {
-    construct_package_url(bitness, version, "zip")
+    Ok(Url::parse(&format!(
+        "https://cdn.devolutions.net/download/Wayk/{0}/WaykNow-{1}-{0}.zip",
+        version.as_quad(),
+        bitness
+    ))?)
 }
 
 fn download_artifact(destination: &Path, url: &Url) -> DownloadResult<()> {
