@@ -8,6 +8,14 @@
 
 #define MAX_COMMAND_LINE 8192
 
+#define WAYK_AGENT_REGISTY_PATH L"SOFTWARE\\Wayk\\WaykNow"
+#define WAYK_CLIENT_REGISTY_PATH L"SOFTWARE\\Wayk\\WaykClient"
+
+#define EXE_PATH_POSTFIX "*.exe"
+
+#define WAYK_AGENT_NAME L"WaykAgent.exe"
+#define WAYK_CLIENT_NAME L"WaykClient.exe"
+
 typedef enum
 {
 	COMMAND_INTERPRETER_CMD = 0,
@@ -399,14 +407,23 @@ char* GetWaykInstallationDir()
 
 	keyOpenStatus = RegOpenKeyExW(
 		HKEY_LOCAL_MACHINE,
-		L"SOFTWARE\\Wayk\\WaykNow",
+		WAYK_AGENT_REGISTY_PATH,
 		0,
 		regKeyAccess,
 		&regKey);
 	if (keyOpenStatus != ERROR_SUCCESS)
 	{
-		CSE_LOG_WARN("Failed to open Wayk Now registry key");
-		goto cleanup;
+		keyOpenStatus = RegOpenKeyExW(
+			HKEY_LOCAL_MACHINE,
+			WAYK_CLIENT_REGISTY_PATH,
+			0,
+			regKeyAccess,
+			&regKey);
+
+		if (keyOpenStatus != ERROR_SUCCESS){
+			CSE_LOG_WARN("Failed to open Wayk Now registry key");
+			goto cleanup;
+		}
 	}
 
 	installPathW = malloc(LZ_MAX_PATH);
@@ -441,4 +458,121 @@ char* GetWaykInstallationDir()
 	}
 
 	return installPath;
+}
+
+int RunWaykNow(char * path_to_wayknow_dir){
+	int status = LZ_OK;
+
+	DWORD exitCode = 0;
+	STARTUPINFOA startupInfo;
+	PROCESS_INFORMATION processInfo;
+	
+	ZeroMemory(&startupInfo, sizeof(STARTUPINFOA));
+	startupInfo.cb = sizeof(STARTUPINFOA);
+	ZeroMemory(&processInfo, sizeof(PROCESS_INFORMATION));
+
+	char wayknow_path[LZ_MAX_PATH];
+	strncpy(wayknow_path, path_to_wayknow_dir, LZ_MAX_PATH);
+
+	if (SetWaykNowExePath(wayknow_path, LZ_MAX_PATH) != LZ_OK)
+	{
+		status = LZ_ERROR_FAIL;
+		goto finalization;
+	}
+	
+	int create_process_status = LzCreateProcess(
+		wayknow_path,
+		NULL,
+		NULL,
+		NULL,
+		FALSE,
+		0,
+		NULL,
+		NULL,
+		&startupInfo,
+		&processInfo
+	);
+
+	if (!create_process_status)
+	{
+		CSE_LOG_ERROR("Failed to start WaykNow run process (%d)", (int)GetLastError());
+		status = LZ_ERROR_FAIL;
+		goto finalization;
+	} 
+
+	if (!GetExitCodeProcess(processInfo.hProcess, &exitCode))
+	{
+		if (exitCode)
+		{
+			CSE_LOG_ERROR("Running WaykNow process failed with code %d", (int)exitCode);
+			status = LZ_ERROR_FAIL;
+		}
+	}
+
+finalization: 
+	if(processInfo.hProcess)
+		CloseHandle(processInfo.hProcess);
+	if(processInfo.hThread)
+		CloseHandle(processInfo.hThread);
+	
+	return status;
+}
+
+
+int SetWaykNowExePath(char * pathBuffer, int pathBufferSize){
+	char path[LZ_MAX_PATH];
+	
+	WIN32_FIND_DATAW fd;
+	
+	WCHAR* filename = NULL;
+	char* chFilename = NULL;
+	ZeroMemory(&fd, sizeof(WIN32_FIND_DATAW));
+	
+	strncpy(path, pathBuffer, LZ_MAX_PATH);
+	strncat(path, EXE_PATH_POSTFIX, sizeof(EXE_PATH_POSTFIX));
+	
+	WCHAR* pathUTF16 = LzUnicode_UTF8toUTF16_dup(path);
+
+	HANDLE hFind = FindFirstFileW(pathUTF16, &fd);
+	if (hFind == INVALID_HANDLE_VALUE)
+	{
+		CSE_LOG_ERROR("Failed to find WaykNow executable file due to (%d) system error", (int)GetLastError());
+		goto error;
+	}
+	
+	do
+	{
+		if (!strncmp(fd.cFileName, WAYK_AGENT_NAME, sizeof(WAYK_AGENT_NAME)) 
+			|| !strncmp(fd.cFileName, WAYK_CLIENT_NAME, sizeof(WAYK_CLIENT_NAME)))
+		{
+			filename = &fd.cFileName;
+			break;
+		}
+	}
+	while (FindNextFileW(hFind, &fd));
+	
+	if (!filename)
+	{
+		CSE_LOG_ERROR("Failed to find WaykNow executable");	
+		goto error;
+	}
+
+	char* chFilename = LzUnicode_UTF16toUTF8_dup((const uint16_t*)filename);
+	
+	int result = LzPathCchAppend(pathBuffer, pathBufferSize, chFilename);
+	if(result < 0){
+		goto error;
+	}
+
+	free(chFilename);
+	free(pathUTF16);
+	FindClose(hFind);
+
+	return result;
+error:
+	free(chFilename);
+	free(pathUTF16);
+	FindClose(hFind);
+
+	return LZ_ERROR_FAIL;
 }
