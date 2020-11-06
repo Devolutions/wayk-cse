@@ -284,16 +284,7 @@ int main(int argc, char** argv)
 	}
 
 	bool startAfterInstall = CseOptions_StartAfterInstall(cseOptions);
-	if (startAfterInstall)
-	{
-		if (CseInstall_EnableLaunchWaykNowAfterInstall(cseInstall) != CSE_INSTALL_OK)
-		{
-			CSE_LOG_ERROR("Failed to enable WaykNow app start after install for MSI");
-			status = LZ_ERROR_FAIL;
-			goto cleanup;
-		}
-	}
-
+	
 	bool createDesktopShortcut = CseOptions_CreateDesktopShortcut(cseOptions);
 	if (!createDesktopShortcut)
 	{
@@ -377,12 +368,21 @@ int main(int argc, char** argv)
 			goto cleanup;
 		}
 	}
+	if (startAfterInstall)
+	{
+		CSE_LOG_INFO("Running WaykNow...");
+		status = RunWaykNow(waykNowInstallationDir);
+		if (status != LZ_OK) 
+		{
+			CSE_LOG_ERROR("Failed to run WaykNow after install");
+		}
+	}
 
 	CSE_LOG_INFO("Removing temp files...");
 
 	status = RmDirRecursively(extractionPath);
 
-	CSE_LOG_ERROR("Successfully deployed %s CSE!", productName);
+	CSE_LOG_INFO("Successfully deployed %s CSE!", productName);
 
 cleanup:
 	if (productName)

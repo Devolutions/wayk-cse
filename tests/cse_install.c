@@ -15,18 +15,16 @@ int all_available_options()
 		return 3;
 	if (CseInstall_SetInstallDirectory(install, "D:\\wayk_install") != CSE_INSTALL_OK)
 		return 4;
-	if (CseInstall_EnableLaunchWaykNowAfterInstall(install) != CSE_INSTALL_OK)
-		return 5;
 	if (CseInstall_DisableDesktopShortcut(install) != CSE_INSTALL_OK)
-		return 6;
+		return 5;
 	if (CseInstall_DisableStartMenuShortcut(install) != CSE_INSTALL_OK)
-		return 7;
+		return 6;
 
 	const char* expected =
 		"\"C:\\wayk.exe\" install-local-package \"C:\\installer.msi\" "
 		"\"ENROLL_DEN_URL=\\\"http://my-url.com\\\"\" \"ENROLL_TOKEN_ID=\\\"1234567890\\\"\" "
 		"\"CONFIG_ANALYTICS_ENABLED=\\\"false\\\"\" \"INSTALLDIR=\\\"D:\\wayk_install\\\"\" "
-		"\"SUPPRESSLAUNCH=\\\"0\\\"\" \"INSTALLDESKTOPSHORTCUT=\\\"0\\\"\" "
+		"\"INSTALLDESKTOPSHORTCUT=\\\"0\\\"\" "
 		"\"INSTALLSTARTMENUSHORTCUT=\\\"0\\\"\"";
 
 	const char* actual = CseInstall_GetCli(install);

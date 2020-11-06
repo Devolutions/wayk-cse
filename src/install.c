@@ -427,10 +427,6 @@ CseInstallResult CseInstall_SetInstallDirectory(CseInstall* ctx, const char* dir
 	return CseInstall_SetMsiOption(ctx, "INSTALLDIR", dir);
 }
 
-CseInstallResult CseInstall_EnableLaunchWaykNowAfterInstall(CseInstall* ctx)
-{
-	return CseInstall_SetMsiOption(ctx, "SUPPRESSLAUNCH", "");
-}
 
 CseInstallResult CseInstall_DisableDesktopShortcut(CseInstall* ctx)
 {

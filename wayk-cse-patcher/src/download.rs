@@ -34,7 +34,6 @@ impl Error {
 
 pub type DownloadResult<T> = Result<T, Error>;
 
-
 fn construct_msi_url(bitness: Bitness, version: NowVersion) -> DownloadResult<Url> {
     Ok(Url::parse(&format!(
         "https://cdn.devolutions.net/download/Wayk/{0}/WaykAgent-{1}-{0}.msi",
