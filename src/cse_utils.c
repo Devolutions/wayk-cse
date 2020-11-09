@@ -542,8 +542,8 @@ int SetWaykNowExePath(char * pathBuffer, int pathBufferSize){
 	
 	do
 	{
-		if (!strncmp(fd.cFileName, WAYK_AGENT_NAME, sizeof(WAYK_AGENT_NAME)) 
-			|| !strncmp(fd.cFileName, WAYK_CLIENT_NAME, sizeof(WAYK_CLIENT_NAME)))
+		if (!wcsncmp(fd.cFileName, WAYK_AGENT_NAME, sizeof(WAYK_AGENT_NAME)) 
+			|| !wcsncmp(fd.cFileName, WAYK_CLIENT_NAME, sizeof(WAYK_CLIENT_NAME)))
 		{
 			filename = &fd.cFileName;
 			break;
@@ -557,7 +557,7 @@ int SetWaykNowExePath(char * pathBuffer, int pathBufferSize){
 		goto error;
 	}
 
-	char* chFilename = LzUnicode_UTF16toUTF8_dup((const uint16_t*)filename);
+	chFilename = LzUnicode_UTF16toUTF8_dup((const uint16_t*)filename);
 	
 	int result = LzPathCchAppend(pathBuffer, pathBufferSize, chFilename);
 	if(result < 0){
