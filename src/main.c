@@ -44,13 +44,6 @@ static int ExtractBundle(
 		goto cleanup;
 	}
 
-	if (WaykCseBundle_ExtractWaykNowExecutable(bundle, bitness, extractionPath) != WAYK_CSE_BUNDLE_OK)
-	{
-		CSE_LOG_ERROR("Wayk Now binary with required bitness is not found inside CSE bundle");
-		status = LZ_ERROR_NOT_FOUND;
-		goto cleanup;
-	}
-
 	if (WaykCseBundle_ExtractWaykNowInstaller(bundle, bitness, extractionPath) == WAYK_CSE_BUNDLE_OK)
 	{
 		contentInfo->hasEmbeddedInstaller = true;
@@ -131,7 +124,6 @@ int main(int argc, char** argv)
 	CseInstall* cseInstall = 0;
 
 	CseLog_Init(stderr, GetLogLevel());
-
 	waykBinariesBitness = LzIsWow64() ? WAYK_BINARIES_BITNESS_X64 : WAYK_BINARIES_BITNESS_X86;
 
 	if (!IsElevated())
@@ -330,7 +322,7 @@ int main(int argc, char** argv)
 
 	if (CseInstall_Run(cseInstall) != CSE_INSTALL_OK)
 	{
-		CSE_LOG_ERROR("Failed to execute MSI isntallation");
+		CSE_LOG_ERROR("Failed to execute MSI installation");
 		status = LZ_ERROR_FAIL;
 		goto cleanup;
 	}

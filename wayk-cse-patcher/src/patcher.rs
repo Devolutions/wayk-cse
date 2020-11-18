@@ -36,9 +36,7 @@ impl WaykCsePatcher {
 
     pub fn run(self) -> anyhow::Result<()> {
         let args = Self::parse_arguments();
-
         let working_dir = tempdir().context("Failed to create temp workind directory")?;
-
         info!(
             "Patcher working directory: {}",
             working_dir.path().display()
@@ -66,8 +64,8 @@ impl WaykCsePatcher {
 
         for bitness in &options.install_options().supported_architectures {
             info!("Downloading artifacts zip for {} architecture...", bitness);
-            let artifacts_zip_path = working_dir.path().join(format!("Wayk_{}.zip", bitness));
-            download_latest_zip(&artifacts_zip_path, *bitness).with_context(|| {
+           // let artifacts_zip_path = working_dir.path().join(format!("Wayk_{}.zip", bitness));
+            /*download_latest_zip(&artifacts_zip_path, *bitness).with_context(|| {
                 format!(
                     "Failed to download WaykNow executable for {} architecture",
                     bitness
@@ -76,21 +74,21 @@ impl WaykCsePatcher {
             bundle.add_bundle_package(
                 BundlePackageType::WaykBinaries { bitness: *bitness },
                 &artifacts_zip_path,
-            );
+            );*/
 
-            if options.install_options().embed_msi.unwrap_or(true) {
-                info!("Downloading msi installer for {} architecture...", bitness);
-                let msi_path = working_dir
-                    .path()
-                    .join(format!("Installer_{}.msi", bitness));
-                download_latest_msi(&msi_path, *bitness).with_context(|| {
-                    format!("Failed to download MSI for {} architecture", bitness)
-                })?;
-                bundle.add_bundle_package(
-                    BundlePackageType::InstallationMsi { bitness: *bitness },
-                    &msi_path,
-                );
-            }
+            /*if options.install_options().embed_msi.unwrap_or(true) {*/
+            info!("Downloading msi installer for {} architecture...", bitness);
+            let msi_path = working_dir
+                .path()
+                .join(format!("Installer_{}.msi", bitness));
+            download_latest_msi(&msi_path, *bitness).with_context(|| {
+                format!("Failed to download MSI for {} architecture", bitness)
+            })?;
+            bundle.add_bundle_package(
+                BundlePackageType::InstallationMsi { bitness: *bitness },
+                &msi_path,
+            );
+            //}
         }
 
         if let Some(script_path) = &options.post_install_script_options().path {
@@ -103,6 +101,8 @@ impl WaykCsePatcher {
         if let Some(branding_path) = &options.branding_options().path {
             info!("Processing branding file...");
             let branding_path = Path::new(branding_path);
+
+            info!("Branding path: {:?}", branding_path);
             bundle.add_bundle_package(BundlePackageType::BrandingZip, branding_path);
 
             let icon_data = extract_branding_icon(branding_path)
@@ -113,7 +113,6 @@ impl WaykCsePatcher {
 
             if let Some(icon_data) = icon_data {
                 let icon_path = working_dir.path().join("icon.ico");
-
                 File::create(&icon_path)
                     .map(|mut file| {
                         let mut reader = icon_data.as_slice();
@@ -137,7 +136,7 @@ impl WaykCsePatcher {
             };
         }
 
-        patcher.set_product_name(product_name.as_deref().unwrap_or("Wayk Now"));
+        patcher.set_product_name(product_name.as_deref().unwrap_or("Wayk Agent"));
 
         info!("Packing bundle archive...");
         let bundle_path = working_dir.path().join("bundle.7z");

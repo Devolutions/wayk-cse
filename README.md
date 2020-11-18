@@ -1,6 +1,6 @@
-# WaykNow custom standalone executable
+# WaykAgent custom standalone executable
 
-This project allows us to build custom standalone executable (CSE) for WaykNow.
+This project allows us to build custom standalone executable (CSE) for WaykAgent.
 Currently, only the Windows platform is supported.
 
 #### Features 
@@ -13,19 +13,61 @@ Currently, only the Windows platform is supported.
 - Execute custom WaykNow PowerShell initialization script before launch
 	- WaykNow-ps functionality can be used, the module itself will be integrated inside CSE, no internet connection needed
 
-#### CSE modules description
+#### Requirements
 
-**WaykCseDummy.exe** - Executable with logic, required to launch the WaykNow in the standalone mode with advanced customization options (in contrast to the old standalone WaykNow executable). Initially, this executable only contains the code, without required resources (e.g. binaries, init script, branding file). This executable is always a 32-bit application. 
+Download the latest **Ninja** binaries https://github.com/ninja-build/ninja/releases and add Ninja to the the **PATH** environment variable
+
+Download the latest **7-zip** add 7zip to the the **PATH** environment variable
+
+Maker sur **signtool** is installed on the machine and added to the **PATH** environment variable
+
+#### build wayk-cse-patcher
+
+```
+    cd /wayk-cse-patcher
+    cargo build
+```
+the executable is available in the /target repo
+
+#### CSE modules description and options
+
+**WaykCseDummy.exe** - Executable with logic, required to launch the WaykNow in the standalone mode with advanced customization options (in contrast to the old standalone WaykNow executable). Initially, this executable only contains the code, without required resources (e.g. binaries, init script, branding file). This executable is always a 32-bit application.
 
 **wayk-cse-patcher** – Utility which implements WaykCseDummy.exe patching to inject the actual WaykNow binaries, branding, script, and WaykNow-ps module to the binary. It provides a lot of options to configure the resulting CSE. If branding is provided, the patcher will also substitute the CSE icon.
 
-#### Requirements
-To use wayk-cse-patcher.exe, **7-zip** and **signtool** are should be installed on the machine and added to the **PATH** environment variable
+**options json file** - json file that will be used by the patcher to set some options in order to get a costumized WaykAgent installation
+
+```
+example of a option file
+
+{
+    "enrollment": {
+        "url": "https://test.url.com",
+        "token": "123456789"
+    },
+    "branding": {
+        "embedded": true,
+        "path": "branding.zip"
+    },
+    "config": {
+        "autoUpdateEnabled": true,
+        "autoLaunchOnUserLogon": true
+    },
+    "install": {
+        "embedMsi": true,
+        "architecture": "x64",
+        "startAfterInstall": true
+    }
+
+```
 
 #### How to use
 
 Example call arguments:
 ```
+USAGE:
+    wayk-cse-patcher.exe --config <CONFIG> --output <OUTPUT>
+
 wayk-cse-patcher.exe
     --with-unattended
     --with-branding "C:\cse\branding.zip"
@@ -43,6 +85,9 @@ wayk-cse-patcher.exe
 
 #### Arguments description
 
+- **--config** specifies the json file path that will set all the CSE installation options. (required)
+- **--output** specifies resulting output path for CSE binary. (required)
+
 - **--with-unattended** flag enables Unattended service support. without it, only WaykNow.exe binaries will be copied, with it - WaykNow.exe, WaykHost.exe, NowSession.exe, NowService.exe
 - **--with-branding** specifies the path to branding zip archive which can be used to brand WaykNow application. Also, an icon from it will be used for resulting CSE, and the product name string will be used in unattended service name ("${PRODUCT_NAME} CSE Service")
 - **--wayk-bin-x86, --wayk-bin-x64** specifies the path to wayk now build artifacts binaries, those artifacts can be obtained on azure pipelines. (required)
@@ -53,5 +98,4 @@ wayk-cse-patcher.exe
 - **--init-script** specifies the path to PowerShell init script, which will be run before WaykNow CSE launch
 - **--enable-signing enables** output executable signing
 - **--signing-cert-name** specifies the name of the certificate (in system-wide cert storage) to sign resulting output CSE. If not specified, the signing will be skipped
-- **--output** specifies resulting output path for CSE binary. (required)
 - **--wayk-ps-version** specifies WaykNow-ps module version from PSGallery to embed to the CSE binary (for PowerShell init script). If not specified, the default version will be used
