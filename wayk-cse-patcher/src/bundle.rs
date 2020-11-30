@@ -68,7 +68,7 @@ impl BundlePacker {
 
         for (package_type, package_path) in &self.packages {
             match package_type {
-                /*BundlePackageType::WaykBinaries { bitness } => {
+                BundlePackageType::WaykBinaries { bitness } => {
                     let mut artifacts = ArtifactsBundle::open(&package_path)?;
 
                     let executable_path = bundle_directory
@@ -77,7 +77,7 @@ impl BundlePacker {
 
                     let mut file = File::create(executable_path)?;
                     artifacts.extract_wayk_now_binary(&mut file)?;
-                }*/
+                }
                 BundlePackageType::InstallationMsi { bitness } => {
                     fs::copy(
                         package_path,

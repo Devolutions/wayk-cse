@@ -64,8 +64,8 @@ impl WaykCsePatcher {
 
         for bitness in &options.install_options().supported_architectures {
             info!("Downloading artifacts zip for {} architecture...", bitness);
-           // let artifacts_zip_path = working_dir.path().join(format!("Wayk_{}.zip", bitness));
-            /*download_latest_zip(&artifacts_zip_path, *bitness).with_context(|| {
+            let artifacts_zip_path = working_dir.path().join(format!("Wayk_{}.zip", bitness));
+            download_latest_zip(&artifacts_zip_path, *bitness).with_context(|| {
                 format!(
                     "Failed to download WaykNow executable for {} architecture",
                     bitness
@@ -74,9 +74,8 @@ impl WaykCsePatcher {
             bundle.add_bundle_package(
                 BundlePackageType::WaykBinaries { bitness: *bitness },
                 &artifacts_zip_path,
-            );*/
+            );
 
-            /*if options.install_options().embed_msi.unwrap_or(true) {*/
             info!("Downloading msi installer for {} architecture...", bitness);
             let msi_path = working_dir
                 .path()
@@ -88,7 +87,6 @@ impl WaykCsePatcher {
                 BundlePackageType::InstallationMsi { bitness: *bitness },
                 &msi_path,
             );
-            //}
         }
 
         if let Some(script_path) = &options.post_install_script_options().path {

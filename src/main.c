@@ -44,8 +44,15 @@ static int ExtractBundle(
 		goto cleanup;
 	}
 
+	if (WaykCseBundle_ExtractWaykNowExecutable(bundle, bitness, extractionPath) == WAYK_CSE_BUNDLE_OK)
+	{
+		CSE_LOG_DEBUG("Extracting executable %s", extractionPath);
+		contentInfo->hasEmbeddedInstaller = true;
+	}
+
 	if (WaykCseBundle_ExtractWaykNowInstaller(bundle, bitness, extractionPath) == WAYK_CSE_BUNDLE_OK)
 	{
+		CSE_LOG_DEBUG("Extracting installer %s", extractionPath);
 		contentInfo->hasEmbeddedInstaller = true;
 	}
 
@@ -327,7 +334,7 @@ int main(int argc, char** argv)
 		goto cleanup;
 	}
 
-	waykNowInstallationDir = GetWaykInstallationDir();
+	/*waykNowInstallationDir = GetWaykInstallationDir();
 	if (!waykNowInstallationDir)
 	{
 		CSE_LOG_ERROR("Failed to query %s installation dir", productName);
@@ -372,7 +379,7 @@ int main(int argc, char** argv)
 
 	CSE_LOG_INFO("Removing temp files...");
 
-	status = RmDirRecursively(extractionPath);
+	status = RmDirRecursively(extractionPath);*/
 
 	CSE_LOG_INFO("Successfully deployed %s CSE!", productName);
 

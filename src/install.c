@@ -478,7 +478,7 @@ CseInstallResult CseInstall_Run(CseInstall* ctx)
 		0,
 		0,
 		FALSE,
-		0,
+		CREATE_UNICODE_ENVIRONMENT | DETACHED_PROCESS | CREATE_BREAKAWAY_FROM_JOB,
 		0,
 		0,
 		&startupInfo,
@@ -496,7 +496,7 @@ CseInstallResult CseInstall_Run(CseInstall* ctx)
 		goto finalize;
 	}
 
-	CSE_LOG_INFO("Waiting for MSI installation to finish...");
+	/*CSE_LOG_INFO("Waiting for MSI installation to finish...");
 	WaitForSingleObject(processInfo.hProcess, INFINITE);
 	if (GetExitCodeProcess(processInfo.hProcess, &returnCode) == TRUE)
 	{
@@ -509,7 +509,7 @@ CseInstallResult CseInstall_Run(CseInstall* ctx)
 	else
 	{
 		CSE_LOG_WARN("Failed to get MSI return code");
-	}
+	}*/
 
 finalize:
 	if (processInfo.hThread)
