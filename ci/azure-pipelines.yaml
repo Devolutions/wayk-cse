@@ -1,0 +1,147 @@
+name: wayk-cse-$(Rev:rr)
+
+trigger:
+  branches:
+    include:
+      - master
+
+variables:
+  - group: wayknow
+
+stages:
+  - stage: Get_version
+    jobs:
+      - job: Extract_version
+        pool:
+          name: 'Devolutions - Linux containers'
+
+        workspace:
+          clean: all
+
+        container: devolutions/toolbox:latest
+
+        steps:
+          - checkout: self
+            clean: true
+            fetchDepth: 1
+
+          - script: |
+              VERSION=$(toml get wayk-cse-patcher/Cargo.toml package.version | tr -d '"')
+              echo ${VERSION} > VERSION
+            displayName: Get version
+          
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathToPublish: VERSION
+              artifactName: version
+
+  - stage: wayk_cse_patcher
+    dependsOn: ['Get_version']
+    jobs:
+      - job: Windows_x86_64
+        pool:
+          name: 'Devolutions - Windows containers'
+
+        workspace:
+          clean: all
+
+        container: devolutions/waykbuilder:vstools2k19
+
+        steps:
+          - checkout: self
+            clean: true
+            fetchDepth: 1
+
+          - task: DownloadBuildArtifacts@0
+            inputs:
+              artifactName: version
+              downloadPath: $(Agent.BuildDirectory)
+
+          - task: DownloadSecureFile@1
+            inputs:
+              secureFile: CodeSigningCertificateUnsecure.pfx
+
+          - task: CopyFiles@1
+            inputs:
+              sourceFolder: $(Agent.TempDirectory)
+              targetFolder: $(Build.Repository.LocalPath)
+              contents: 'CodeSigningCertificateUnsecure.pfx'
+
+          - powershell: |
+              $secureString = convertto-securestring "$(WINDOWS_SIGNING_PASSPHRASE)" -asplaintext -force
+              Import-PfxCertificate -FilePath CodeSigningCertificateUnsecure.pfx -CertStoreLocation Cert:\LocalMachine\My -Password $secureString
+              Import-PfxCertificate -FilePath CodeSigningCertificateUnsecure.pfx -CertStoreLocation Cert:\CurrentUser\My -Password $secureString
+            displayName: Import signing certificate
+
+          - powershell: |
+              $version = Get-Content $(Agent.BuildDirectory)\version\VERSION
+              cargo build --release
+              mkdir $(Build.ArtifactStagingDirectory)/windows/x86_64
+              cp target/release/wayk-cse-patcher.exe $(Build.ArtifactStagingDirectory)/windows/x86_64/wayk-cse-patcher_windows_"$version"_x86_64.exe
+            displayName: Building wayk-cse-patcher
+            env:
+              RUSTFLAGS: '-C target-feature=+crt-static'
+
+          - powershell: |
+              $version = Get-Content $(Agent.BuildDirectory)\version\VERSION
+              signtool sign /fd SHA256 /v /t http://timestamp.verisign.com/scripts/timstamp.dll $(Build.ArtifactStagingDirectory)/windows/x86_64/wayk-cse-patcher_windows_"$version"_x86_64.exe
+            displayName: Signing binary
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathToPublish: $(Build.ArtifactStagingDirectory)
+              artifactName: wayk-cse-patcher
+
+      - job: Windows_x86
+        pool:
+          name: 'Devolutions - Windows containers'
+
+        workspace:
+          clean: all
+
+        container: devolutions/waykbuilder:vstools2k19
+
+        steps:
+          - checkout: self
+            clean: true
+            fetchDepth: 1
+
+          - task: DownloadBuildArtifacts@0
+            inputs:
+              artifactName: version
+              downloadPath: $(Agent.BuildDirectory)
+
+          - task: DownloadSecureFile@1
+            inputs:
+              secureFile: CodeSigningCertificateUnsecure.pfx
+
+          - task: CopyFiles@1
+            inputs:
+              sourceFolder: $(Agent.TempDirectory)
+              targetFolder: $(Build.Repository.LocalPath)
+              contents: 'CodeSigningCertificateUnsecure.pfx'
+
+          - powershell: |
+              $secureString = convertto-securestring "$(WINDOWS_SIGNING_PASSPHRASE)" -asplaintext -force
+              Import-PfxCertificate -FilePath CodeSigningCertificateUnsecure.pfx -CertStoreLocation Cert:\LocalMachine\My -Password $secureString
+              Import-PfxCertificate -FilePath CodeSigningCertificateUnsecure.pfx -CertStoreLocation Cert:\CurrentUser\My -Password $secureString
+            displayName: Import signing certificate
+
+          - powershell: |
+              $version = Get-Content $(Agent.BuildDirectory)\version\VERSION
+              cargo build --release --target=i686-pc-windows-msvc
+              mkdir $(Build.ArtifactStagingDirectory)/windows/x86
+              cp target/i686-pc-windows-msvc/release/wayk-cse-patcher.exe $(Build.ArtifactStagingDirectory)/windows/x86/wayk-cse-patcher_windows_"$version"_x86.exe
+            displayName: Building wayk-cse-patcher
+            env:
+              RUSTFLAGS: '-C target-feature=+crt-static'
+
+          - powershell: |
+              $version = Get-Content $(Agent.BuildDirectory)\version\VERSION
+              signtool sign /fd SHA256 /v /t http://timestamp.verisign.com/scripts/timstamp.dll $(Build.ArtifactStagingDirectory)/windows/x86/wayk-cse-patcher_windows_"$version"_x86.exe
+            displayName: Signing binary
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathToPublish: $(Build.ArtifactStagingDirectory)
+              artifactName: wayk-cse-patcher
