@@ -26,7 +26,7 @@ stages:
             fetchDepth: 1
 
           - script: |
-              VERSION=$(toml get wayk-cse-patcher\Cargo.toml package.version | tr -d '"')
+              VERSION=$(toml get wayk-cse-patcher/Cargo.toml package.version | tr -d '"')
               echo ${VERSION} > VERSION
             displayName: Get version
           
