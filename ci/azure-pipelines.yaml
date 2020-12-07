@@ -79,7 +79,6 @@ stages:
               mkdir $(Build.ArtifactStagingDirectory)/windows/x86_64
               cp target/release/wayk-cse-patcher.exe $(Build.ArtifactStagingDirectory)/windows/x86_64/wayk-cse-patcher_windows_"$version"_x86_64.exe
             displayName: Building wayk-cse-patcher
-            workingDirectory: wayk-cse-patcher
             env:
               RUSTFLAGS: '-C target-feature=+crt-static'
 
@@ -134,7 +133,6 @@ stages:
               mkdir $(Build.ArtifactStagingDirectory)/windows/x86
               cp target/i686-pc-windows-msvc/release/wayk-cse-patcher.exe $(Build.ArtifactStagingDirectory)/windows/x86/wayk-cse-patcher_windows_"$version"_x86.exe
             displayName: Building wayk-cse-patcher
-            workingDirectory: wayk-cse-patcher
             env:
               RUSTFLAGS: '-C target-feature=+crt-static'
 
