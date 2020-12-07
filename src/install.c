@@ -496,21 +496,6 @@ CseInstallResult CseInstall_Run(CseInstall* ctx)
 		goto finalize;
 	}
 
-	/*CSE_LOG_INFO("Waiting for MSI installation to finish...");
-	WaitForSingleObject(processInfo.hProcess, INFINITE);
-	if (GetExitCodeProcess(processInfo.hProcess, &returnCode) == TRUE)
-	{
-		if (returnCode != 0)
-		{
-			CSE_LOG_ERROR("MSI installation failed with code %d", (int) returnCode);
-			result = CSE_INSTALL_MSI_FAILED;
-		}
-	}
-	else
-	{
-		CSE_LOG_WARN("Failed to get MSI return code");
-	}*/
-
 finalize:
 	if (processInfo.hThread)
 		CloseHandle(processInfo.hThread);

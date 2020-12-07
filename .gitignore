@@ -7,6 +7,8 @@ WaykNow.7z
 *.wixpdb
 *.msi
 
+*.vscode
+
 *.vs
 CMakeSettings.json
 

@@ -95,7 +95,6 @@ impl BundlePacker {
                 BundlePackageType::CseOptions => {
                     fs::copy(package_path, bundle_directory.path().join("options.json"))?;
                 }
-                _ => {}
             }
         }
 
