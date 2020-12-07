@@ -138,7 +138,7 @@ stages:
 
           - powershell: |
               $version = Get-Content $(Agent.BuildDirectory)\version\VERSION
-              signtool sign /fd SHA256 /v /t http://timestamp.verisign.com/scripts/timstamp.dll $(Build.ArtifactStagingDirectory)/windows/x86/jetsocat_windows_"$version"_x86.exe
+              signtool sign /fd SHA256 /v /t http://timestamp.verisign.com/scripts/timstamp.dll $(Build.ArtifactStagingDirectory)/windows/x86/wayk-cse-patcher_windows_"$version"_x86.exe
             displayName: Signing binary
 
           - task: PublishBuildArtifacts@1
