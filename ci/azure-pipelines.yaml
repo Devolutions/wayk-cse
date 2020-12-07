@@ -32,7 +32,7 @@ stages:
               pathToPublish: VERSION
               artifactName: version
 
-  - stage: wayk-cse-patcher
+  - stage: wayk_cse_patcher
     dependsOn: ['Get_version']
     jobs:
       - job: Windows_x86_64
