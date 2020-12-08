@@ -44,10 +44,11 @@ static int ExtractBundle(
 		goto cleanup;
 	}
 
-	if (WaykCseBundle_ExtractWaykNowExecutable(bundle, bitness, extractionPath) == WAYK_CSE_BUNDLE_OK)
+	if (WaykCseBundle_ExtractWaykNowExecutable(bundle, bitness, extractionPath) != WAYK_CSE_BUNDLE_OK)
 	{
-		CSE_LOG_DEBUG("Extracting executable %s", extractionPath);
-		contentInfo->hasEmbeddedInstaller = true;
+		CSE_LOG_ERROR("Wayk Agent binary with the required bitness is not found inside CSE bundle");
+		status = LZ_ERROR_NOT_FOUND;
+		goto cleanup;
 	}
 
 	if (WaykCseBundle_ExtractWaykNowInstaller(bundle, bitness, extractionPath) == WAYK_CSE_BUNDLE_OK)

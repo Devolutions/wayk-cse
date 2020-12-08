@@ -42,17 +42,12 @@ fn construct_msi_url(bitness: Bitness, version: NowVersion) -> DownloadResult<Ur
     ))?)
 }
 
-// todo: remove commented part when the installer is fixed in next the version
 fn construct_zip_url(bitness: Bitness, version: NowVersion) -> DownloadResult<Url> {
     Ok(Url::parse(&format!(
         "https://cdn.devolutions.net/download/Wayk/{0}/WaykNow-{1}-{0}.zip",
         version.as_quad(),
         bitness
     ))?)
-    /*temporarily get the 3.0.0 version as 3.1.0 needs a fix in the installation process */ 
-    /*Ok(Url::parse(&format!(
-        "https://cdn.devolutions.net/download/Wayk/2020.3.0.0/WaykNow-x64-2020.3.0.0.zip",
-    ))?)*/
 }
 
 fn download_artifact(destination: &Path, url: &Url) -> DownloadResult<()> {
