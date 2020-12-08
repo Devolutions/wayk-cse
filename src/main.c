@@ -222,7 +222,7 @@ int main(int argc, char** argv)
 
 	if (bundleOptionalContentInfo.hasEmbeddedInstaller)
 	{
-		CSE_LOG_INFO("Preparing for embedded MSI isntall...");
+		CSE_LOG_INFO("Preparing for embedded MSI install...");
 
 		msiPath[0] = '\0';
 		LzPathCchAppend(msiPath, sizeof(msiPath), extractionPath);
@@ -284,6 +284,15 @@ int main(int argc, char** argv)
 	}
 
 	bool startAfterInstall = CseOptions_StartAfterInstall(cseOptions);
+	if (startAfterInstall)
+	{
+		if (CseInstall_DisableSuppressLaunch(cseInstall) != CSE_INSTALL_OK)
+		{
+			CSE_LOG_ERROR("Failed to disable suppress launch option for MSI");
+			status = LZ_ERROR_FAIL;
+			goto cleanup;
+		}
+	}
 	
 	bool createDesktopShortcut = CseOptions_CreateDesktopShortcut(cseOptions);
 	if (!createDesktopShortcut)
