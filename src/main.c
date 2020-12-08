@@ -284,15 +284,6 @@ int main(int argc, char** argv)
 	}
 
 	bool startAfterInstall = CseOptions_StartAfterInstall(cseOptions);
-	if (startAfterInstall)
-	{
-		if (CseInstall_DisableSuppressLaunch(cseInstall) != CSE_INSTALL_OK)
-		{
-			CSE_LOG_ERROR("Failed to disable suppress launch option for MSI");
-			status = LZ_ERROR_FAIL;
-			goto cleanup;
-		}
-	}
 	
 	bool createDesktopShortcut = CseOptions_CreateDesktopShortcut(cseOptions);
 	if (!createDesktopShortcut)
@@ -343,6 +334,53 @@ int main(int argc, char** argv)
 		status = LZ_ERROR_FAIL;
 		goto cleanup;
 	}
+
+	waykNowInstallationDir = GetWaykInstallationDir();
+	if (!waykNowInstallationDir)
+	{
+		CSE_LOG_ERROR("Failed to query %s installation dir", productName);
+		status = LZ_ERROR_FAIL;
+		goto cleanup;
+	}
+
+	// Run Power Shell after installation
+	if (bundleOptionalContentInfo.hasPowerShellInitScript)
+	{
+		CSE_LOG_INFO("Starting post-install PowerShell script execution...");
+
+		psInitScriptPath[0] = '\0';
+		LzPathCchAppend(
+			psInitScriptPath,
+			sizeof(psInitScriptPath),
+			extractionPath);
+		LzPathCchAppend(
+			psInitScriptPath,
+			sizeof(psInitScriptPath),
+			GetPowerShellInitScriptFileName());
+
+		const char* modulePath = CseOptions_WaykNowPsModuleImportRequired(cseOptions)
+			? GetPowerShellModulePath(waykNowInstallationDir)
+			: 0;
+		status = RunWaykNowInitScript(modulePath, psInitScriptPath);
+		if (status != LZ_OK)
+		{
+			CSE_LOG_ERROR("Failed to run %s initialization script", productName);
+			goto cleanup;
+		}
+	}
+	if (startAfterInstall)
+	{
+		CSE_LOG_INFO("Running WaykNow...");
+		status = RunWaykNow(waykNowInstallationDir);
+		if (status != LZ_OK) 
+		{
+			CSE_LOG_ERROR("Failed to run WaykNow after install");
+		}
+	}
+
+	CSE_LOG_INFO("Removing temp files...");
+
+	status = RmDirRecursively(extractionPath);
 
 	CSE_LOG_INFO("Successfully deployed %s CSE!", productName);
 
