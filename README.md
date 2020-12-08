@@ -17,10 +17,6 @@ Currently, only the Windows platform is supported.
 
 Download the latest **Ninja** binaries https://github.com/ninja-build/ninja/releases and add Ninja to the the **PATH** environment variable
 
-Download the latest **7-zip** add 7zip to the the **PATH** environment variable
-
-Maker sur **signtool** is installed on the machine and added to the **PATH** environment variable
-
 #### build wayk-cse-patcher
 
 ```
@@ -62,6 +58,10 @@ example of a option file
 ```
 
 #### How to use
+
+Download the latest **7-zip** add 7zip to the the **PATH** environment variable
+
+Maker sur **signtool** is installed on the machine and added to the **PATH** environment variable
 
 Example call arguments:
 ```
