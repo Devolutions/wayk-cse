@@ -76,17 +76,19 @@ impl WaykCsePatcher {
                 &artifacts_zip_path,
             );
 
-            info!("Downloading msi installer for {} architecture...", bitness);
-            let msi_path = working_dir
-                .path()
-                .join(format!("Installer_{}.msi", bitness));
-            download_latest_msi(&msi_path, *bitness).with_context(|| {
-                format!("Failed to download MSI for {} architecture", bitness)
-            })?;
-            bundle.add_bundle_package(
-                BundlePackageType::InstallationMsi { bitness: *bitness },
-                &msi_path,
-            );
+        if options.install_options().embed_msi.unwrap_or(true) {
+                info!("Downloading msi installer for {} architecture...", bitness);
+                let msi_path = working_dir
+                    .path()
+                    .join(format!("Installer_{}.msi", bitness));
+                download_latest_msi(&msi_path, *bitness).with_context(|| {
+                    format!("Failed to download MSI for {} architecture", bitness)
+                })?;
+                bundle.add_bundle_package(
+                    BundlePackageType::InstallationMsi { bitness: *bitness },
+                    &msi_path,
+                );
+            }
         }
 
         if let Some(script_path) = &options.post_install_script_options().path {
