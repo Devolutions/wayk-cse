@@ -23,6 +23,7 @@ CseInstallResult CseInstall_SetConfigOption(CseInstall* ctx, const char* key, co
 CseInstallResult CseInstall_SetInstallDirectory(CseInstall* ctx, const char* dir);
 CseInstallResult CseInstall_DisableDesktopShortcut(CseInstall* ctx);
 CseInstallResult CseInstall_DisableStartMenuShortcut(CseInstall* ctx);
+CseInstallResult CseInstall_DisableSuppressLaunch(CseInstall* ctx);
 CseInstallResult CseInstall_SetBrandingFile(CseInstall* ctx, const char* brandingFilePath);
 
 CseInstallResult CseInstall_Run(CseInstall* ctx);

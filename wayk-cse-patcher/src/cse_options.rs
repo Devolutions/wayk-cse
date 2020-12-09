@@ -69,10 +69,10 @@ impl CseOptions {
         let json_data = json::parse(json_str)?;
 
         let mut branding_options = BrandingOptions::default();
-
         if let Some(branding_path) = json_data["branding"]["path"].as_str() {
             branding_options.path.replace(branding_path.into());
         }
+
         let mut signing_options = SigningOptions::default();
         if let Some(cert_name) = json_data["signing"]["certName"].as_str() {
             signing_options.cert_name.replace(cert_name.into());
@@ -82,6 +82,7 @@ impl CseOptions {
         if let Some(script_path) = json_data["postInstallScript"]["path"].as_str() {
             post_install_script_options.path.replace(script_path.into());
         }
+
         if let JsonValue::Boolean(ref import_wayk_now_module) =
             json_data["postInstallScript"]["importWaykNowModule"]
         {

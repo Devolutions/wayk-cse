@@ -438,6 +438,11 @@ CseInstallResult CseInstall_DisableStartMenuShortcut(CseInstall* ctx)
 	return CseInstall_SetMsiOption(ctx, "INSTALLSTARTMENUSHORTCUT", "");
 }
 
+CseInstallResult CseInstall_DisableSuppressLaunch(CseInstall* ctx)
+{
+	return CseInstall_SetMsiOption(ctx, "SUPPRESSLAUNCH", "");
+}
+
 CseInstallResult CseInstall_SetBrandingFile(CseInstall* ctx, const char* brandingFilePath)
 {
 	return CseInstall_SetMsiOption(ctx, "BRANDING_FILE", brandingFilePath);
@@ -460,10 +465,39 @@ CseInstallResult CseInstall_Run(CseInstall* ctx)
 	PROCESS_INFORMATION processInfo;
 	DWORD returnCode = 0;
 	void* wow64FsRedirectionContext = 0;
+	HANDLE job;
+	HANDLE jobCompletionPort;
+	JOBOBJECT_ASSOCIATE_COMPLETION_PORT port;
+	DWORD completionKey;
+	ULONG_PTR completionCode;
+	LPOVERLAPPED overlapped;
+	BOOL waitStatus = FALSE;
+	DWORD error;
 
 	ZeroMemory(&startupInfo, sizeof(STARTUPINFOA));
 	startupInfo.cb = sizeof(STARTUPINFOA);
 	ZeroMemory(&processInfo, sizeof(PROCESS_INFORMATION));
+
+	job = CreateJobObject(NULL, NULL);
+	jobCompletionPort = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 1);
+
+	if (!job || !jobCompletionPort)
+	{
+		CSE_LOG_ERROR("Failed to create MSI installation job (%d)", (int)GetLastError());
+		result = CSE_INSTALL_CREATE_PROCESS_FAILED;
+		goto finalize;
+	}
+
+	ZeroMemory(&port, sizeof(JOBOBJECT_ASSOCIATE_COMPLETION_PORT));
+	port.CompletionKey = job;
+	port.CompletionPort = jobCompletionPort;
+
+	if (!SetInformationJobObject(job, JobObjectAssociateCompletionPortInformation, &port, sizeof(port)))
+	{
+		CSE_LOG_ERROR("Failed to initialize MSI installation job (%d)", (int)GetLastError());
+		result = CSE_INSTALL_CREATE_PROCESS_FAILED;
+		goto finalize;
+	}
 
 	CSE_LOG_DEBUG("Starting WaykNow executable for MSI installation...");
 	CSE_LOG_DEBUG("Executable: %s", ctx->waykNowExecutable);
@@ -478,13 +512,13 @@ CseInstallResult CseInstall_Run(CseInstall* ctx)
 		0,
 		0,
 		FALSE,
-		0,
+		CREATE_SUSPENDED | CREATE_UNICODE_ENVIRONMENT,
 		0,
 		0,
 		&startupInfo,
 		&processInfo);
 
-	DWORD error = GetLastError();
+	error = GetLastError();
 
 	if (LzIsWow64())
 		pfnWow64RevertWow64FsRedirection(wow64FsRedirectionContext);
@@ -496,19 +530,36 @@ CseInstallResult CseInstall_Run(CseInstall* ctx)
 		goto finalize;
 	}
 
-	CSE_LOG_INFO("Waiting for MSI installation to finish...");
-	WaitForSingleObject(processInfo.hProcess, INFINITE);
-	if (GetExitCodeProcess(processInfo.hProcess, &returnCode) == TRUE)
+	if (!AssignProcessToJobObject(job, processInfo.hProcess))
 	{
-		if (returnCode != 0)
-		{
-			CSE_LOG_ERROR("MSI installation failed with code %d", (int) returnCode);
-			result = CSE_INSTALL_MSI_FAILED;
-		}
+		CSE_LOG_ERROR("Failed to add MSI installation to job (%d)", (int)GetLastError());
+		result = CSE_INSTALL_CREATE_PROCESS_FAILED;
+		goto finalize;
 	}
-	else
+
+	if (ResumeThread(processInfo.hThread) == (DWORD) - 1)
 	{
-		CSE_LOG_WARN("Failed to get MSI return code");
+		CSE_LOG_ERROR("Failed to resume MSI installation process (%d)", (int)GetLastError());
+		result = CSE_INSTALL_CREATE_PROCESS_FAILED;
+		goto finalize;
+	}
+
+	CSE_LOG_INFO("Waiting for MSI installation to finish...");
+
+	WaitForSingleObject(processInfo.hProcess, INFINITE);
+
+	while (true)
+	{
+		waitStatus = GetQueuedCompletionStatus(jobCompletionPort, &completionCode, &completionKey, &overlapped, INFINITE);
+		
+		if (waitStatus && (HANDLE) completionKey == job && completionCode == JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO)
+			break;
+
+		if (!waitStatus)
+		{
+			CSE_LOG_WARN("Failed to wait for MSI installation");
+			break;
+		}
 	}
 
 finalize:
@@ -516,6 +567,10 @@ finalize:
 		CloseHandle(processInfo.hThread);
 	if (processInfo.hProcess)
 		CloseHandle(processInfo.hProcess);
+	if (job)
+		CloseHandle(job);
+	if (jobCompletionPort)
+		CloseHandle(jobCompletionPort);
 
 	return result;
 }

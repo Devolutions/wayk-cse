@@ -56,7 +56,7 @@ WaykCseBundle* WaykCseBundle_Open()
 	}
 
 	// Actually on Windows version > XP LockResource just calculated and returns
-	// pointer; unlock and FreeResoource is not required anymore on modern Windows
+	// pointer; unlock and FreeResource is not required anymore on modern Windows
 	resourceData = (BYTE*) LockResource(resource);
 	resourceSize = SizeofResource(NULL, resourceInfo);
 
