@@ -15,8 +15,8 @@
     },
 	"install": {
 		"embedMsi": true,
-		"architecure": "all",
-		"startAfterInsatll": true
+		"architecture": "all",
+		"startAfterInstall": true
 	},
 	"postInstallScript": {
 		"path": "script.ps1",

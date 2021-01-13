@@ -30,7 +30,7 @@ impl Display for Bitness {
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("Bunle packing failed during io operation ({0})")]
+    #[error("Bundle packing failed during io operation ({0})")]
     IoError(#[from] io::Error),
     #[error("Artifacts bundle processing failed ({0})")]
     ArtifactsBundleFailed(#[from] artifacts_bundle::Error),
