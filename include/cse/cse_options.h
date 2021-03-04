@@ -21,6 +21,7 @@ CseOptionsResult CseOptions_LoadFromFile(CseOptions* ctx, const char* path);
 CseOptionsResult CseOptions_LoadFromString(CseOptions* ctx, const char* json);
 
 // Installation
+bool CseOptions_Quiet(CseOptions* ctx);
 bool CseOptions_StartAfterInstall(CseOptions* ctx);
 bool CseOptions_CreateDesktopShortcut(CseOptions* ctx);
 bool CseOptions_CreateStartMenuShortcut(CseOptions* ctx);

@@ -12,7 +12,7 @@ typedef enum
 	CSE_INSTALL_MSI_FAILED,
 } CseInstallResult;
 
-typedef struct cse_isntall CseInstall;
+typedef struct cse_install CseInstall;
 
 CseInstall* CseInstall_WithLocalMsi(const char* waykNowExecutable, const char* msiPath);
 CseInstall* CseInstall_WithMsiDownload(const char* waykNowExecutable);
@@ -21,6 +21,7 @@ void CseInstall_Free(CseInstall* ctx);
 CseInstallResult CseInstall_SetEnrollmentOptions(CseInstall* ctx, const char* url, const char* token);
 CseInstallResult CseInstall_SetConfigOption(CseInstall* ctx, const char* key, const char* value);
 CseInstallResult CseInstall_SetInstallDirectory(CseInstall* ctx, const char* dir);
+CseInstallResult CseInstall_SetQuiet(CseInstall* ctx);
 CseInstallResult CseInstall_DisableDesktopShortcut(CseInstall* ctx);
 CseInstallResult CseInstall_DisableStartMenuShortcut(CseInstall* ctx);
 CseInstallResult CseInstall_DisableSuppressLaunch(CseInstall* ctx);

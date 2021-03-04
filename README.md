@@ -52,7 +52,8 @@ example of a option file
     "install": {
         "embedMsi": true,
         "architecture": "x64",
-        "startAfterInstall": true
+        "startAfterInstall": true,
+        "quiet": true
     }
 
 ```
