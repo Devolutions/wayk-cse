@@ -73,6 +73,7 @@ void WaykNowConfigOption_FreeRecursive(WaykNowConfigOption* ctx)
 struct cse_options
 {
 	JSON_Value* jsonRoot;
+	bool quiet;
 	bool startAfterInstall;
 	bool createDesktopShortcut;
 	bool createStartMenuShortcut;
@@ -154,6 +155,15 @@ void CseOptions_Free(CseOptions* ctx)
 
 static CseOptionsResult CseOptions_ParseCseKnownCseOptions(CseOptions* ctx, JSON_Object* root)
 {
+	int quiet = lz_json_object_dotget_boolean(
+		root,
+		"install.quiet");
+	if (quiet >= 0)
+	{
+		CSE_LOG_TRACE("Found option -> install.quiet: %d", quiet);
+		ctx->quiet = quiet;
+	}
+
 	int startAfterInstall = lz_json_object_dotget_boolean(
 		root,
 		"install.startAfterInstall");
@@ -396,6 +406,11 @@ CseOptionsResult CseOptions_LoadFromString(CseOptions* ctx, const char* json)
 	}
 
 	return CseOptions_Process(ctx, rootValue);
+}
+
+bool CseOptions_Quiet(CseOptions* ctx)
+{
+		return ctx->quiet;
 }
 
 bool CseOptions_StartAfterInstall(CseOptions* ctx)

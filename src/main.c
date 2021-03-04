@@ -243,6 +243,17 @@ int main(int argc, char** argv)
 		goto cleanup;
 	}
 
+	bool quiet = CseOptions_Quiet(cseOptions);
+	if (quiet)
+	{
+		if (CseInstall_SetQuiet(cseInstall) != CSE_INSTALL_OK)
+		{
+				CSE_LOG_ERROR("Failed to set quiet parameter for MSI");
+				status = LZ_ERROR_FAIL;
+				goto cleanup;
+		}
+	}
+
 	const char* enrollmentToken = CseOptions_GetEnrollmentToken(cseOptions);
 	const char* enrollmentUrl = CseOptions_GetEnrollmentUrl(cseOptions);
 	if (enrollmentToken || enrollmentUrl)
@@ -284,7 +295,8 @@ int main(int argc, char** argv)
 	}
 
 	bool startAfterInstall = CseOptions_StartAfterInstall(cseOptions);
-	
+
+
 	bool createDesktopShortcut = CseOptions_CreateDesktopShortcut(cseOptions);
 	if (!createDesktopShortcut)
 	{

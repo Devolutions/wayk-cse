@@ -13,7 +13,7 @@
 // CreateProcessW limit (32767) + null terminator
 #define MAX_CLI_BUFFER_SIZE 32768
 
-struct cse_isntall
+struct cse_install
 {
 	char* waykNowExecutable;
 	char* cli;
@@ -285,6 +285,25 @@ CseInstall* CseInstall_WithMsiDownload(const char* waykNowExecutable)
 	return CseInstall_New(waykNowExecutable, 0);
 }
 
+static CseInstallResult CseInstall_AddMsiParameter(CseInstall* ctx, const char* value)
+{
+	CSE_LOG_TRACE("Adding MSI parameter \"%s\"", value);
+	if (!value)
+	{
+		CSE_LOG_ERROR("Invalid arguments");
+		return CSE_INSTALL_INVALID_ARGS;
+	}
+
+	CseInstallResult result;
+
+	result = CseInstall_CliAppendWhitespace(ctx);
+	if (result != CSE_INSTALL_OK) return result;
+	result = CseInstall_CliAppendString(ctx, value);
+	if (result != CSE_INSTALL_OK) return result;
+
+	return CSE_INSTALL_OK;
+}
+
 static CseInstallResult CseInstall_SetMsiOption(CseInstall* ctx, const char* key, const char* value)
 {
 	CSE_LOG_TRACE("Setting MSI option \"%s\" to \"%s\"", key, value);
@@ -427,6 +446,10 @@ CseInstallResult CseInstall_SetInstallDirectory(CseInstall* ctx, const char* dir
 	return CseInstall_SetMsiOption(ctx, "INSTALLDIR", dir);
 }
 
+CseInstallResult CseInstall_SetQuiet(CseInstall* ctx)
+{
+	return CseInstall_AddMsiParameter(ctx, "/quiet");
+}
 
 CseInstallResult CseInstall_DisableDesktopShortcut(CseInstall* ctx)
 {
@@ -456,7 +479,6 @@ char* CseInstall_GetCli(CseInstall* ctx)
 }
 
 #endif
-
 
 CseInstallResult CseInstall_Run(CseInstall* ctx)
 {
