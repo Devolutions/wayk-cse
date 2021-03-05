@@ -154,7 +154,8 @@ char* GetWaykCseOption(int key)
 	return _strdup(optionValue);
 }
 
-char* GetProductName() {
+char* GetProductName() 
+{
 	return GetWaykCseOption(IDS_WAYK_PRODUCT_NAME);
 }
 
@@ -400,6 +401,7 @@ char* GetWaykInstallationDir()
 	LSTATUS keyOpenStatus = ERROR_PATH_NOT_FOUND;
 	HKEY regKey;
 	REGSAM regKeyAccess = KEY_READ;
+
 	if (LzIsWow64())
 	{
 		regKeyAccess |= KEY_WOW64_64KEY;
@@ -427,10 +429,12 @@ char* GetWaykInstallationDir()
 	}
 
 	installPathW = malloc(LZ_MAX_PATH);
+
 	if (!installPathW)
 	{
 		CSE_LOG_WARN("Failed to allocate InstallPath buffer");
 	}
+
 	if (RegQueryValueExW(
 		regKey,
 		L"InstallDir",
@@ -518,8 +522,7 @@ finalization:
 	return status;
 }
 
-
-int SetWaykNowExePath(char * pathBuffer, int pathBufferSize){
+int SetWaykNowExePath(char* pathBuffer, int pathBufferSize){
 	char path[LZ_MAX_PATH];
 	
 	WIN32_FIND_DATAW fd;

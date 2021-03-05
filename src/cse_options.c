@@ -152,7 +152,6 @@ void CseOptions_Free(CseOptions* ctx)
 	free(ctx);
 }
 
-
 static CseOptionsResult CseOptions_ParseCseKnownCseOptions(CseOptions* ctx, JSON_Object* root)
 {
 	int quiet = lz_json_object_dotget_boolean(

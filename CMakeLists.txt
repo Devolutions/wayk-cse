@@ -105,13 +105,15 @@ set(${MODULE_PREFIX}_LIB_SOURCES
 	src/bundle.c
 	src/cse_options.c
 	src/log.c
-	src/install.c)
+	src/install.c
+	src/download.c)
 set(${MODULE_PREFIX}_LIB_HEADERS
 	include/cse/cse_utils.h
 	include/cse/bundle.h
 	include/cse/cse_options.h
 	include/cse/log.h
-	include/cse/install.h)
+	include/cse/install.h
+	include/cse/download.h)
 
 set(${MODULE_PREFIX}_SOURCES src/main.c)
 
@@ -131,6 +133,8 @@ if (WAYK_CSE_LOCAL_LIZARD)
 else()
 	target_link_libraries(${MODULE_NAME}-lib ${CONAN_TARGETS})
 endif()
+
+target_link_libraries(${MODULE_NAME}-lib winhttp)
 
 target_include_directories(
 	${MODULE_NAME}-lib
@@ -156,4 +160,8 @@ if (DEFINED TESTING)
 	add_executable(${MODULE_NAME}-test-cse-install tests/cse_install.c)
 	target_link_libraries(${MODULE_NAME}-test-cse-install PUBLIC ${MODULE_NAME}-lib)
 	add_test(${MODULE_NAME}-test-cse-install ${MODULE_NAME}-test-cse-install)
+
+	add_executable(${MODULE_NAME}-test-cse-download tests/cse_download.c)
+	target_link_libraries(${MODULE_NAME}-test-cse-download PUBLIC ${MODULE_NAME}-lib)
+	add_test(${MODULE_NAME}-test-cse-download ${MODULE_NAME}-test-cse-download)
 endif()
