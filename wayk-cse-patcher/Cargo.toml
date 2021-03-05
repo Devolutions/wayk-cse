@@ -1,6 +1,6 @@
 [package]
 name = "wayk-cse-patcher"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["Vladislav Nikonov <nikonov.vladislav@apriorit.com>"]
 edition = "2018"
 description = "WaykNow custom standalone executable (CSE) patcher"
