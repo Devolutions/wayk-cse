@@ -6,6 +6,7 @@
 #include <cse/cse_utils.h>
 #include <cse/install.h>
 #include <cse/bundle.h>
+#include <cse/download.h>
 #include <cse/log.h>
 #include <cse/cse_options.h>
 
@@ -220,21 +221,29 @@ int main(int argc, char** argv)
 	LzPathCchAppend(waykNowBinaryPath, sizeof(waykNowBinaryPath), extractionPath);
 	LzPathCchAppend(waykNowBinaryPath, sizeof(waykNowBinaryPath), GetWaykNowBinaryFileName(waykBinariesBitness));
 
-	if (bundleOptionalContentInfo.hasEmbeddedInstaller)
+	CSE_LOG_INFO("Preparing for MSI install...");
+
+	msiPath[0] = '\0';
+	LzPathCchAppend(msiPath, sizeof(msiPath), extractionPath);
+	LzPathCchAppend(msiPath, sizeof(msiPath), GetInstallerFileName(waykBinariesBitness));
+
+	if (!bundleOptionalContentInfo.hasEmbeddedInstaller)
 	{
-		CSE_LOG_INFO("Preparing for embedded MSI install...");
+		CSE_LOG_INFO("Downloading latest MSI");
 
 		msiPath[0] = '\0';
 		LzPathCchAppend(msiPath, sizeof(msiPath), extractionPath);
 		LzPathCchAppend(msiPath, sizeof(msiPath), GetInstallerFileName(waykBinariesBitness));
-		cseInstall = CseInstall_WithLocalMsi(waykNowBinaryPath, msiPath);
-	}
-	else
-	{
-		CSE_LOG_INFO("Preparing for online MSI download and installation");
 
-		cseInstall = CseInstall_WithMsiDownload(waykNowBinaryPath);
+		if (CseDownload_DownloadMsi(waykBinariesBitness, msiPath) != CSE_DOWNLOAD_OK)
+		{
+			CSE_LOG_ERROR("Failed to download MSI");
+			status = LZ_ERROR_FAIL;
+			goto cleanup;
+		}
 	}
+
+	cseInstall = CseInstall_WithLocalMsi(waykNowBinaryPath, msiPath);
 
 	if (!cseInstall)
 	{
@@ -248,9 +257,9 @@ int main(int argc, char** argv)
 	{
 		if (CseInstall_SetQuiet(cseInstall) != CSE_INSTALL_OK)
 		{
-				CSE_LOG_ERROR("Failed to set quiet parameter for MSI");
-				status = LZ_ERROR_FAIL;
-				goto cleanup;
+			CSE_LOG_ERROR("Failed to set quiet parameter for MSI");
+			status = LZ_ERROR_FAIL;
+			goto cleanup;
 		}
 	}
 
@@ -295,7 +304,6 @@ int main(int argc, char** argv)
 	}
 
 	bool startAfterInstall = CseOptions_StartAfterInstall(cseOptions);
-
 
 	bool createDesktopShortcut = CseOptions_CreateDesktopShortcut(cseOptions);
 	if (!createDesktopShortcut)
