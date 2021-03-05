@@ -50,7 +50,8 @@ static CseInstallResult ToSnakeCase(const char* str, char* buffer, size_t buffer
 				CSE_LOG_ERROR("Insufficient buffer");
 				return CSE_INSTALL_FAILURE;
 			}
-			buffer[currentSize++] = _toupper(str[i]);
+
+			buffer[currentSize++] = isupper(str[i]) ? str[i] :  _toupper(str[i]);
 		}
 	}
 
@@ -118,7 +119,7 @@ static CseInstallResult CseInstall_EnsureCliBufferCapacity(CseInstall* ctx, size
 static CseInstallResult CseInstall_CliAppendString(CseInstall* ctx, const char* str)
 {
 	size_t strSize = strlen(str);
-	CSE_LOG_TRACE("Appedning CLI string with size %d", (int)strSize);
+	CSE_LOG_TRACE("Appending CLI string with size %d", (int)strSize);
 	CseInstallResult result = CseInstall_EnsureCliBufferCapacity(ctx, strSize);
 	if (result != CSE_INSTALL_OK)
 	{
