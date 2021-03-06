@@ -1,6 +1,12 @@
-use std::path::{Path, PathBuf};
+use std::{
+    fs::File,
+    io::Read,
+    path::{Path, PathBuf},
+};
 
-use rcedit::{RceditResult, ResourceUpdater};
+use log::info;
+
+use lief::{Binary, LiefResult};
 use thiserror::Error;
 
 const WAYK_BUNDLE_RESOURCE_ID: u32 = 102;
@@ -14,24 +20,24 @@ pub enum Error {
     ResourcePatchingFailed(String),
 }
 
-pub type ResourcePathcerResult<T> = Result<T, Error>;
+pub type ResourcePatcherResult<T> = Result<T, Error>;
 
 pub struct ResourcePatcher {
-    resource_updater: ResourceUpdater,
     original_binary_path: Option<PathBuf>,
     icon_path: Option<PathBuf>,
     wayk_bundle_path: Option<PathBuf>,
     product_name: Option<String>,
+    output_path: Option<PathBuf>,
 }
 
 impl ResourcePatcher {
     pub fn new() -> Self {
         ResourcePatcher {
-            resource_updater: ResourceUpdater::new(),
             original_binary_path: None,
             icon_path: None,
             wayk_bundle_path: None,
             product_name: None,
+            output_path: None,
         }
     }
 
@@ -55,44 +61,57 @@ impl ResourcePatcher {
         self
     }
 
-    pub fn patch(&mut self) -> ResourcePathcerResult<()> {
+    pub fn set_output_path(&mut self, path: &Path) -> &mut Self {
+        self.output_path = Some(path.to_path_buf());
+        self
+    }
+
+    pub fn patch(&mut self) -> ResourcePatcherResult<()> {
+
+
         if self.original_binary_path.is_none() {
             return Err(Error::ExecutableLoadFailed(
                 "original binary path is not set".to_string(),
             ));
         }
 
-        self.resource_updater
-            .load(&self.original_binary_path.as_ref().unwrap())
-            .map_err(|e| Error::ExecutableLoadFailed(format!("{}", e)))?;
+        let original_binary_path = std::mem::replace(&mut self.original_binary_path, None).unwrap();
 
-        if let Some(icon_path) = self.icon_path.as_ref() {
-            check_rcedit(
-                self.resource_updater.set_icon(icon_path),
-                "Icon patching failed",
-            )?;
+        let binary = Binary::new(original_binary_path).map_err(|err| {
+            Error::ResourcePatchingFailed(format!("Failed to parse binary file:{:?}", err))
+        })?;
+
+        let resource_manager = binary.resource_manager().map_err(|err| {
+            Error::ResourcePatchingFailed(format!("Failed to create resource manager:{:?}", err))
+        })?;
+
+        if let Some(icon_path) = self.icon_path.take() {
+            check_lief(resource_manager.set_icon(icon_path), "Icon setting failed")?;
         }
 
         if let Some(wayk_bundle_path) = self.wayk_bundle_path.as_ref() {
-            check_rcedit(
-                self.resource_updater
-                    .set_rcdata(WAYK_BUNDLE_RESOURCE_ID, wayk_bundle_path),
+            let mut file = File::open(wayk_bundle_path).unwrap();
+            let mut data = Vec::new();
+
+            file.read_to_end(&mut data).map_err(|_| {
+                Error::ResourcePatchingFailed("Failed to read content of Wayk bundle".to_owned())
+            })?;
+            check_lief(
+                resource_manager.set_rcdata(data, WAYK_BUNDLE_RESOURCE_ID),
                 "Wayk bundle patching failed",
             )?;
         }
 
-        if let Some(product_name) = self.product_name.as_ref() {
-            check_rcedit(
-                self.resource_updater
-                    .set_string(PRODUCT_NAME_RESOURCE_ID, product_name),
+        if let Some(product_name) = self.product_name.take() {
+            check_lief(
+                resource_manager.set_string(product_name, PRODUCT_NAME_RESOURCE_ID),
                 "Failed to patch product name",
             )?;
         }
 
-        check_rcedit(
-            self.resource_updater.commit(),
-            "Failed to commit patched binary",
-        )?;
+        if let Some(output_path) = self.output_path.take() {
+            check_lief(binary.build(output_path), "Failed to create binary file")?
+        }
 
         Ok(())
     }
@@ -104,6 +123,8 @@ impl Default for ResourcePatcher {
     }
 }
 
-fn check_rcedit<T>(result: RceditResult<T>, message: &str) -> ResourcePathcerResult<T> {
-    result.map_err(|_| Error::ResourcePatchingFailed(message.to_string()))
+
+fn check_lief<T>(result: LiefResult<T>, message: &str) -> ResourcePatcherResult<T> {
+    result
+        .map_err(|err| Error::ResourcePatchingFailed(format!("{}:{:?}", message.to_string(), err)))
 }

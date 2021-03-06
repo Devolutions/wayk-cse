@@ -22,18 +22,6 @@ impl WaykCsePatcher {
         WaykCsePatcher
     }
 
-    fn extract_empty_cse(path: &Path) -> anyhow::Result<()> {
-        let cse_binary = include_bytes!(env!("WAYK_CSE_PATH"));
-
-        let mut cse_binary_reader: &[u8] = cse_binary.as_ref();
-
-        let mut cse_target_file = File::create(path).context("Failed co create output file")?;
-        io::copy(&mut cse_binary_reader, &mut cse_target_file)
-            .context("Failed to extract original cse file")?;
-
-        Ok(())
-    }
-
     pub fn run(self) -> anyhow::Result<()> {
         let args = Self::parse_arguments();
         let working_dir = tempdir().context("Failed to create temp workind directory")?;
@@ -42,16 +30,15 @@ impl WaykCsePatcher {
             working_dir.path().display()
         );
 
+        let original_path = Path::new(args.value_of("ORIGIN").unwrap());
         let output_path = Path::new(args.value_of("OUTPUT").unwrap());
         let config_path = Path::new(args.value_of("CONFIG").unwrap());
 
         let options = CseOptions::load(config_path)?;
 
-        info!("Extracting empty CSE binary...");
-        Self::extract_empty_cse(output_path)?;
-
         let mut patcher = ResourcePatcher::new();
-        patcher.set_original_binary_path(output_path);
+        patcher.set_original_binary_path(original_path);
+        patcher.set_output_path(output_path);
 
         let mut bundle = BundlePacker::new();
 
@@ -76,7 +63,7 @@ impl WaykCsePatcher {
                 &artifacts_zip_path,
             );
 
-        if options.install_options().embed_msi.unwrap_or(true) {
+            if options.install_options().embed_msi.unwrap_or(true) {
                 info!("Downloading msi installer for {} architecture...", bitness);
                 let msi_path = working_dir
                     .path()
@@ -160,6 +147,13 @@ impl WaykCsePatcher {
             .about(env!("CARGO_PKG_DESCRIPTION"))
             .version(env!("CARGO_PKG_VERSION"))
             .author(env!("CARGO_PKG_AUTHORS"))
+            .arg(
+                Arg::with_name("ORIGIN")
+                    .long("origin")
+                    .help("Set the WaykCSE path")
+                    .takes_value(true)
+                    .required(true),
+            )
             .arg(
                 Arg::with_name("OUTPUT")
                     .short("o")
