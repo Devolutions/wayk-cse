@@ -41,7 +41,6 @@ pub enum Error {
 type BundlePackerResult<T> = Result<T, Error>;
 
 pub enum BundlePackageType {
-    WaykBinaries { bitness: Bitness },
     InstallationMsi { bitness: Bitness },
     BrandingZip,
     CustomInitializationScript,
@@ -68,16 +67,6 @@ impl BundlePacker {
 
         for (package_type, package_path) in &self.packages {
             match package_type {
-                BundlePackageType::WaykBinaries { bitness } => {
-                    let mut artifacts = ArtifactsBundle::open(&package_path)?;
-
-                    let executable_path = bundle_directory
-                        .path()
-                        .join(format!("Bootstrapper_{}.exe", bitness));
-
-                    let mut file = File::create(executable_path)?;
-                    artifacts.extract_wayk_now_binary(&mut file)?;
-                }
                 BundlePackageType::InstallationMsi { bitness } => {
                     fs::copy(
                         package_path,
@@ -160,18 +149,6 @@ mod tests {
             Path::new("tests/data/fake_init_script.ps1"),
         );
         packer.add_bundle_package(
-            BundlePackageType::WaykBinaries {
-                bitness: Bitness::X64,
-            },
-            Path::new("tests/data/wayk_now_mock_binaries.zip"),
-        );
-        packer.add_bundle_package(
-            BundlePackageType::WaykBinaries {
-                bitness: Bitness::X86,
-            },
-            Path::new("tests/data/wayk_now_mock_binaries.zip"),
-        );
-        packer.add_bundle_package(
             BundlePackageType::CseOptions,
             Path::new("tests/data/options.json"),
         );
@@ -197,8 +174,6 @@ mod tests {
             .unwrap();
 
         let stdout = std::str::from_utf8(&output.stdout).unwrap().to_string();
-        assert!(stdout.contains("Bootstrapper_x64.exe"));
-        assert!(stdout.contains("Bootstrapper_x86.exe"));
         assert!(stdout.contains("Installer_x86.msi"));
         assert!(stdout.contains("Installer_x64.msi"));
         assert!(stdout.contains("branding.zip"));

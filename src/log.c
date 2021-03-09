@@ -14,7 +14,6 @@ typedef struct
 
 typedef void (*log_LogFn)(LogMessageContext *ev);
 
-
 static struct
 {
 	CseLogLevel level;
@@ -22,9 +21,7 @@ static struct
 	FILE* outputFile;
 } CseLog;
 
-
 static const char *level_strings[] = {"TRACE", "DEBUG", "INFO", "WARN", "ERROR"};
-
 
 static void WriteLogInternal(LogMessageContext* ctx)
 {

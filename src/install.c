@@ -15,7 +15,6 @@
 
 struct cse_install
 {
-	char* waykNowExecutable;
 	char* cli;
 	size_t cliBufferCapacity; // stored cli buffer available capacity
 	size_t cliBufferSize;     // stored cli string size (without trailing '\0')
@@ -204,22 +203,7 @@ static CseInstallResult CseInstall_CliAppendQuotedString(CseInstall* ctx, const 
 	return result;
 }
 
-static CseInstallResult CseInstall_CliAppendEscapeQuotedString(CseInstall* ctx, const char* str)
-{
-	CseInstallResult result = CseInstall_CliAppendChar(ctx, '\\');
-	if (result != CSE_INSTALL_OK) return result;
-	result = CseInstall_CliAppendChar(ctx, '"');
-	if (result != CSE_INSTALL_OK) return result;
-	result = CseInstall_CliAppendString(ctx, str);
-	if (result != CSE_INSTALL_OK) return result;
-	result = CseInstall_CliAppendChar(ctx, '\\');
-	if (result != CSE_INSTALL_OK) return result;
-	result = CseInstall_CliAppendChar(ctx, '"');
-	if (result != CSE_INSTALL_OK) return result;
-	return result;
-}
-
-static CseInstall* CseInstall_New(const char* waykNowExecutable, const char* msiPath)
+static CseInstall* CseInstall_New(const char* msiPath)
 {
 	CseInstall* ctx = calloc(1, sizeof(CseInstall));
 	if (!ctx)
@@ -228,34 +212,17 @@ static CseInstall* CseInstall_New(const char* waykNowExecutable, const char* msi
 		goto error;
 	}
 
-	ctx->waykNowExecutable = _strdup(waykNowExecutable);
-	if (!ctx->waykNowExecutable)
-	{
-		CSE_LOG_ERROR("Allocation failed");
-		goto error;
-	}
-
 	CseInstallResult result = CSE_INSTALL_OK;
 
-	result = CseInstall_CliAppendQuotedString(ctx, ctx->waykNowExecutable);
+	if (!msiPath)
+		goto error;
+
+	result = CseInstall_CliAppendString(ctx, "msiexec /i");
 	if (result != CSE_INSTALL_OK) goto error;
 	result = CseInstall_CliAppendWhitespace(ctx);
 	if (result != CSE_INSTALL_OK) goto error;
-
-	if (msiPath)
-	{
-		result = CseInstall_CliAppendString(ctx, "install-local-package");
-		if (result != CSE_INSTALL_OK) goto error;
-		result = CseInstall_CliAppendWhitespace(ctx);
-		if (result != CSE_INSTALL_OK) goto error;
-		result = CseInstall_CliAppendQuotedString(ctx, msiPath);
-		if (result != CSE_INSTALL_OK) goto error;
-	}
-	else
-	{
-		result = CseInstall_CliAppendString(ctx, "install");
-		if (result != CSE_INSTALL_OK) goto error;
-	}
+	result = CseInstall_CliAppendQuotedString(ctx, msiPath);
+	if (result != CSE_INSTALL_OK) goto error;
 
 	return ctx;
 
@@ -270,20 +237,13 @@ error:
 
 void CseInstall_Free(CseInstall* ctx)
 {
-	if (ctx->waykNowExecutable)
-		free(ctx->waykNowExecutable);
 	if (ctx->cli)
 		free(ctx->cli);
 }
 
-CseInstall* CseInstall_WithLocalMsi(const char* waykNowExecutable, const char* msiPath)
+CseInstall* CseInstall_WithLocalMsi(const char* msiPath)
 {
-	return CseInstall_New(waykNowExecutable, msiPath);
-}
-
-CseInstall* CseInstall_WithMsiDownload(const char* waykNowExecutable)
-{
-	return CseInstall_New(waykNowExecutable, 0);
+	return CseInstall_New(msiPath);
 }
 
 static CseInstallResult CseInstall_AddMsiParameter(CseInstall* ctx, const char* value)
@@ -319,16 +279,16 @@ static CseInstallResult CseInstall_SetMsiOption(CseInstall* ctx, const char* key
 	// appends CONFIG_KEY="value"
 	result = CseInstall_CliAppendWhitespace(ctx);
 	if (result != CSE_INSTALL_OK) return result;
-	result = CseInstall_CliAppendChar(ctx, '"');
-	if (result != CSE_INSTALL_OK) return result;
+	// result = CseInstall_CliAppendChar(ctx, '"');
+	// if (result != CSE_INSTALL_OK) return result;
 	result = CseInstall_CliAppendString(ctx, key);
 	if (result != CSE_INSTALL_OK) return result;
 	result = CseInstall_CliAppendChar(ctx, '=');
 	if (result != CSE_INSTALL_OK) return result;
-	result = CseInstall_CliAppendEscapeQuotedString(ctx, value);
+	result = CseInstall_CliAppendQuotedString(ctx, value);
 	if (result != CSE_INSTALL_OK) return result;
-	result = CseInstall_CliAppendChar(ctx, '"');
-	if (result != CSE_INSTALL_OK) return result;
+	// result = CseInstall_CliAppendChar(ctx, '"');
+	// if (result != CSE_INSTALL_OK) return result;
 
 	return CSE_INSTALL_OK;
 }
@@ -447,9 +407,9 @@ CseInstallResult CseInstall_SetInstallDirectory(CseInstall* ctx, const char* dir
 	return CseInstall_SetMsiOption(ctx, "INSTALLDIR", dir);
 }
 
-CseInstallResult CseInstall_SetQuiet(CseInstall* ctx)
+CseInstallResult CseInstall_SetQuiet(CseInstall* ctx, bool quiet)
 {
-	return CseInstall_AddMsiParameter(ctx, "/quiet");
+	return CseInstall_AddMsiParameter(ctx, quiet ? "/quiet" : "/passive");
 }
 
 CseInstallResult CseInstall_DisableDesktopShortcut(CseInstall* ctx)
@@ -488,9 +448,6 @@ CseInstallResult CseInstall_Run(CseInstall* ctx)
 	PROCESS_INFORMATION processInfo;
 	DWORD returnCode = 0;
 	void* wow64FsRedirectionContext = 0;
-	HANDLE job;
-	HANDLE jobCompletionPort;
-	JOBOBJECT_ASSOCIATE_COMPLETION_PORT port;
 	DWORD completionKey;
 	ULONG_PTR completionCode;
 	LPOVERLAPPED overlapped;
@@ -501,41 +458,19 @@ CseInstallResult CseInstall_Run(CseInstall* ctx)
 	startupInfo.cb = sizeof(STARTUPINFOA);
 	ZeroMemory(&processInfo, sizeof(PROCESS_INFORMATION));
 
-	job = CreateJobObject(NULL, NULL);
-	jobCompletionPort = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 1);
-
-	if (!job || !jobCompletionPort)
-	{
-		CSE_LOG_ERROR("Failed to create MSI installation job (%d)", (int)GetLastError());
-		result = CSE_INSTALL_CREATE_PROCESS_FAILED;
-		goto finalize;
-	}
-
-	ZeroMemory(&port, sizeof(JOBOBJECT_ASSOCIATE_COMPLETION_PORT));
-	port.CompletionKey = job;
-	port.CompletionPort = jobCompletionPort;
-
-	if (!SetInformationJobObject(job, JobObjectAssociateCompletionPortInformation, &port, sizeof(port)))
-	{
-		CSE_LOG_ERROR("Failed to initialize MSI installation job (%d)", (int)GetLastError());
-		result = CSE_INSTALL_CREATE_PROCESS_FAILED;
-		goto finalize;
-	}
-
 	CSE_LOG_DEBUG("Starting WaykNow executable for MSI installation...");
-	CSE_LOG_DEBUG("Executable: %s", ctx->waykNowExecutable);
 	CSE_LOG_DEBUG("CLI: %s", ctx->cli);
 
 	if (LzIsWow64())
 		pfnWow64DisableWow64FsRedirection(&wow64FsRedirectionContext);
 
 	BOOL processCreated = LzCreateProcess(
-		ctx->waykNowExecutable,
+		NULL,
 		ctx->cli,
 		0,
 		0,
 		FALSE,
-		CREATE_SUSPENDED | CREATE_UNICODE_ENVIRONMENT,
+		CREATE_UNICODE_ENVIRONMENT,
 		0,
 		0,
 		&startupInfo,
@@ -553,47 +488,16 @@ CseInstallResult CseInstall_Run(CseInstall* ctx)
 		goto finalize;
 	}
 
-	if (!AssignProcessToJobObject(job, processInfo.hProcess))
-	{
-		CSE_LOG_ERROR("Failed to add MSI installation to job (%d)", (int)GetLastError());
-		result = CSE_INSTALL_CREATE_PROCESS_FAILED;
-		goto finalize;
-	}
-
-	if (ResumeThread(processInfo.hThread) == (DWORD) - 1)
-	{
-		CSE_LOG_ERROR("Failed to resume MSI installation process (%d)", (int)GetLastError());
-		result = CSE_INSTALL_CREATE_PROCESS_FAILED;
-		goto finalize;
-	}
-
 	CSE_LOG_INFO("Waiting for MSI installation to finish...");
 
-	WaitForSingleObject(processInfo.hProcess, INFINITE);
-
-	while (true)
-	{
-		waitStatus = GetQueuedCompletionStatus(jobCompletionPort, &completionCode, &completionKey, &overlapped, INFINITE);
-		
-		if (waitStatus && (HANDLE) completionKey == job && completionCode == JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO)
-			break;
-
-		if (!waitStatus)
-		{
-			CSE_LOG_WARN("Failed to wait for MSI installation");
-			break;
-		}
-	}
+	if (WaitForSingleObject(processInfo.hProcess, INFINITE) != WAIT_OBJECT_0)
+		CSE_LOG_WARN("Failed to wait for MSI installation");
 
 finalize:
 	if (processInfo.hThread)
 		CloseHandle(processInfo.hThread);
 	if (processInfo.hProcess)
 		CloseHandle(processInfo.hProcess);
-	if (job)
-		CloseHandle(job);
-	if (jobCompletionPort)
-		CloseHandle(jobCompletionPort);
 
 	return result;
 }
