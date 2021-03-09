@@ -4,8 +4,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use log::info;
-
 use lief::{Binary, LiefResult};
 use thiserror::Error;
 
@@ -67,8 +65,6 @@ impl ResourcePatcher {
     }
 
     pub fn patch(&mut self) -> ResourcePatcherResult<()> {
-
-
         if self.original_binary_path.is_none() {
             return Err(Error::ExecutableLoadFailed(
                 "original binary path is not set".to_string(),
@@ -122,7 +118,6 @@ impl Default for ResourcePatcher {
         Self::new()
     }
 }
-
 
 fn check_lief<T>(result: LiefResult<T>, message: &str) -> ResourcePatcherResult<T> {
     result

@@ -1,6 +1,6 @@
 use std::{fs::File, io, path::Path};
 
-use tempfile::{Builder as TempFileBuilder, TempPath, NamedTempFile};
+use tempfile::{Builder as TempFileBuilder, NamedTempFile, TempPath};
 use wayk_cse_patcher::resource_patcher::ResourcePatcher;
 
 const WAYK_CSE_DUMMY_PATH: &str = "tests/data/MockCseDummy.exe";
@@ -13,7 +13,11 @@ fn copy_test_binary() -> TempPath {
 }
 
 fn patch(binary_path: &Path) -> NamedTempFile {
-    let output_path = TempFileBuilder::new().prefix("Outfile").suffix(".exe").tempfile().unwrap();
+    let output_path = TempFileBuilder::new()
+        .prefix("Outfile")
+        .suffix(".exe")
+        .tempfile()
+        .unwrap();
 
     let mut updater = ResourcePatcher::new();
     updater.set_original_binary_path(binary_path);
