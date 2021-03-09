@@ -119,7 +119,7 @@ CseDownloadResult CseDownload_DownloadMsi(WaykBinariesBitness bitness, const cha
 	CSE_LOG_INFO("Downloading MSI from %s", msiUrl);
 
 	LzHttp_SetRecvTimeout(http, 600 * 1000);
-	status = LzHttp_Get(http, msiUrl, CseDownload_OnWriteFile, fp, error);
+	status = LzHttp_Get(http, msiUrl, CseDownload_OnWriteFile, fp, &error);
 
 	if (status != LZ_OK)
 	{

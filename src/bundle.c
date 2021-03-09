@@ -13,11 +13,6 @@
 #define INSTALLER_FILE_NAME_X86 "Installer_x86.msi"
 #define INSTALLER_FILE_NAME_X64 "Installer_x64.msi"
 
-// NOTE WaykNow executable should not have "WaykNow" in its name, because
-// in this case it will be killed by the MSI installer
-#define WAYK_NOW_BINARY_FILE_NAME_X86 "Bootstrapper_x86.exe"
-#define WAYK_NOW_BINARY_FILE_NAME_X64 "Bootstrapper_x64.exe"
-
 #define JSON_OPTIONS_FILE_NAME "options.json"
 
 struct waykcse_bundle
@@ -104,9 +99,11 @@ static WaykCseBundleStatus WaykCseBundle_ExtractSingleFile(
 	LzPathCchAppend(outputPath, sizeof(outputPath), targetFolder);
 	LzPathCchAppend(outputPath, sizeof(outputPath), fileName);
 
-	if (LzArchive_ExtractFile(ctx->archiveHandle, -1, fileName, outputPath) != LZ_OK)
+	int rv = LzArchive_ExtractFile(ctx->archiveHandle, -1, fileName, outputPath);
+	
+	if (rv != LZ_OK)
 	{
-		CSE_LOG_ERROR("Failed to extract %s from the bundle\n", fileName);
+		CSE_LOG_ERROR("Failed to extract %s from the bundle: %d %s\n", fileName, rv, outputPath);
 		return WAYK_CSE_BUNDLE_MISSING_PACKAGE;
 	}
 
@@ -118,14 +115,6 @@ WaykCseBundleStatus WaykCseBundle_ExtractBrandingZip(
 	const char* targetFolder)
 {
 	return WaykCseBundle_ExtractSingleFile(ctx, targetFolder, GetBrandingFileName());
-}
-
-WaykCseBundleStatus WaykCseBundle_ExtractWaykNowExecutable(
-	WaykCseBundle* ctx,
-	WaykBinariesBitness bitness,
-	const char* targetFolder)
-{
-	return WaykCseBundle_ExtractSingleFile(ctx, targetFolder, GetWaykNowBinaryFileName(bitness));
 }
 
 WaykCseBundleStatus WaykCseBundle_ExtractWaykNowInstaller(
@@ -163,13 +152,6 @@ const char* GetPowerShellInitScriptFileName()
 const char* GetJsonOptionsFileName()
 {
 	return JSON_OPTIONS_FILE_NAME;
-}
-
-const char* GetWaykNowBinaryFileName(WaykBinariesBitness bitness)
-{
-	return (bitness == WAYK_BINARIES_BITNESS_X86)
-		? WAYK_NOW_BINARY_FILE_NAME_X86
-		: WAYK_NOW_BINARY_FILE_NAME_X64;
 }
 
 const char* GetInstallerFileName(WaykBinariesBitness bitness)

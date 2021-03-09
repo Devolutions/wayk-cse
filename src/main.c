@@ -45,13 +45,6 @@ static int ExtractBundle(
 		goto cleanup;
 	}
 
-	if (WaykCseBundle_ExtractWaykNowExecutable(bundle, bitness, extractionPath) != WAYK_CSE_BUNDLE_OK)
-	{
-		CSE_LOG_ERROR("Wayk Agent binary with the required bitness is not found inside CSE bundle");
-		status = LZ_ERROR_NOT_FOUND;
-		goto cleanup;
-	}
-
 	if (WaykCseBundle_ExtractWaykNowInstaller(bundle, bitness, extractionPath) == WAYK_CSE_BUNDLE_OK)
 	{
 		CSE_LOG_DEBUG("Extracting installer %s", extractionPath);
@@ -114,7 +107,7 @@ static CseLogLevel GetLogLevel()
 	#endif
 }
 
-int main(int argc, char** argv)
+int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR pCmdLine, _In_ int nCmdShow)
 {
 	int status;
 	WaykBinariesBitness waykBinariesBitness;
@@ -123,7 +116,6 @@ int main(int argc, char** argv)
 	char psInitScriptPath[LZ_MAX_PATH];
 	char extractionPath[LZ_MAX_PATH];
 	char optionsPath[LZ_MAX_PATH];
-	char waykNowBinaryPath[LZ_MAX_PATH];
 	char msiPath[LZ_MAX_PATH];
 	char brandingPath[LZ_MAX_PATH];
 	char* productName = 0;
@@ -132,7 +124,13 @@ int main(int argc, char** argv)
 	CseOptions* cseOptions = 0;
 	CseInstall* cseInstall = 0;
 
-	CseLog_Init(stderr, GetLogLevel());
+	if (AttachConsole(-1) != 0)
+	{
+		freopen("CONOUT$", "w", stdout);
+		freopen("CONOUT$", "w", stderr);
+		CseLog_Init(stderr, GetLogLevel());
+	}
+
 	waykBinariesBitness = LzIsWow64() ? WAYK_BINARIES_BITNESS_X64 : WAYK_BINARIES_BITNESS_X86;
 
 	if (!IsElevated())
@@ -217,10 +215,6 @@ int main(int argc, char** argv)
 		goto cleanup;
 	}
 
-	waykNowBinaryPath[0] = '\0';
-	LzPathCchAppend(waykNowBinaryPath, sizeof(waykNowBinaryPath), extractionPath);
-	LzPathCchAppend(waykNowBinaryPath, sizeof(waykNowBinaryPath), GetWaykNowBinaryFileName(waykBinariesBitness));
-
 	CSE_LOG_INFO("Preparing for MSI install...");
 
 	msiPath[0] = '\0';
@@ -243,7 +237,7 @@ int main(int argc, char** argv)
 		}
 	}
 
-	cseInstall = CseInstall_WithLocalMsi(waykNowBinaryPath, msiPath);
+	cseInstall = CseInstall_WithLocalMsi(msiPath);
 
 	if (!cseInstall)
 	{
@@ -253,14 +247,11 @@ int main(int argc, char** argv)
 	}
 
 	bool quiet = CseOptions_Quiet(cseOptions);
-	if (quiet)
+	if (CseInstall_SetQuiet(cseInstall, quiet) != CSE_INSTALL_OK)
 	{
-		if (CseInstall_SetQuiet(cseInstall) != CSE_INSTALL_OK)
-		{
-			CSE_LOG_ERROR("Failed to set quiet parameter for MSI");
-			status = LZ_ERROR_FAIL;
-			goto cleanup;
-		}
+		CSE_LOG_ERROR("Failed to set quiet parameter for MSI");
+		status = LZ_ERROR_FAIL;
+		goto cleanup;
 	}
 
 	const char* enrollmentToken = CseOptions_GetEnrollmentToken(cseOptions);

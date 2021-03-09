@@ -142,7 +142,7 @@ target_include_directories(
 	"${CMAKE_CURRENT_LIST_DIR}/include"
 	"${CMAKE_CURRENT_BINARY_DIR}")
 
-add_executable(${MODULE_NAME} ${${MODULE_PREFIX}_SOURCES} ${${MODULE_PREFIX}_RESOURCES})
+add_executable(${MODULE_NAME} WIN32 ${${MODULE_PREFIX}_SOURCES} ${${MODULE_PREFIX}_RESOURCES})
 target_link_libraries(${MODULE_NAME} PRIVATE ${MODULE_NAME}-lib)
 set_target_properties(${MODULE_NAME} PROPERTIES OUTPUT_NAME "${OUTPUT_NAME}")
 

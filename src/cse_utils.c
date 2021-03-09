@@ -522,7 +522,8 @@ finalization:
 	return status;
 }
 
-int SetWaykNowExePath(char* pathBuffer, int pathBufferSize){
+int SetWaykNowExePath(char* pathBuffer, int pathBufferSize)
+{
 	char path[LZ_MAX_PATH];
 	
 	WIN32_FIND_DATAW fd;

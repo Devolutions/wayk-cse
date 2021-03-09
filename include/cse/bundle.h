@@ -23,11 +23,6 @@ typedef struct waykcse_bundle WaykCseBundle;
 WaykCseBundle* WaykCseBundle_Open();
 void WaykCseBundle_Close(WaykCseBundle* ctx);
 
-
-WaykCseBundleStatus WaykCseBundle_ExtractWaykNowExecutable(
-	WaykCseBundle* ctx,
-	WaykBinariesBitness bitness,
-	const char* targetFolder);
 WaykCseBundleStatus WaykCseBundle_ExtractWaykNowInstaller(
 	WaykCseBundle* ctx,
 	WaykBinariesBitness bitness,
@@ -46,7 +41,6 @@ const char* GetBrandingFileName();
 const char* GetPowerShellInitScriptFileName();
 const char* GetJsonOptionsFileName();
 const char* GetInstallerFileName(WaykBinariesBitness bitness);
-const char* GetWaykNowBinaryFileName(WaykBinariesBitness bitness);
 
 
 #endif //WAYKCSE_BUNDLE_H

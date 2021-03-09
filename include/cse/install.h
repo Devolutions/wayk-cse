@@ -1,6 +1,8 @@
 #ifndef WAYKCSE_INSTALL_H
 #define WAYKCSE_INSTALL_H
 
+#include <stdbool.h>
+
 typedef enum
 {
 	CSE_INSTALL_OK,
@@ -14,14 +16,13 @@ typedef enum
 
 typedef struct cse_install CseInstall;
 
-CseInstall* CseInstall_WithLocalMsi(const char* waykNowExecutable, const char* msiPath);
-CseInstall* CseInstall_WithMsiDownload(const char* waykNowExecutable);
+CseInstall* CseInstall_WithLocalMsi(const char* msiPath);
 void CseInstall_Free(CseInstall* ctx);
 
 CseInstallResult CseInstall_SetEnrollmentOptions(CseInstall* ctx, const char* url, const char* token);
 CseInstallResult CseInstall_SetConfigOption(CseInstall* ctx, const char* key, const char* value);
 CseInstallResult CseInstall_SetInstallDirectory(CseInstall* ctx, const char* dir);
-CseInstallResult CseInstall_SetQuiet(CseInstall* ctx);
+CseInstallResult CseInstall_SetQuiet(CseInstall* ctx, bool quiet);
 CseInstallResult CseInstall_DisableDesktopShortcut(CseInstall* ctx);
 CseInstallResult CseInstall_DisableStartMenuShortcut(CseInstall* ctx);
 CseInstallResult CseInstall_DisableSuppressLaunch(CseInstall* ctx);

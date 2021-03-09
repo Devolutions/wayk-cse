@@ -27,7 +27,7 @@ impl WaykCsePatcher {
 
         let mut cse_binary_reader: &[u8] = cse_binary.as_ref();
 
-        let mut cse_target_file = File::create(path).context("Failed co create output file")?;
+        let mut cse_target_file = File::create(path).context("Failed to create output file")?;
         io::copy(&mut cse_binary_reader, &mut cse_target_file)
             .context("Failed to extract original cse file")?;
 
@@ -63,20 +63,7 @@ impl WaykCsePatcher {
         bundle.add_bundle_package(BundlePackageType::CseOptions, &processed_options_path);
 
         for bitness in &options.install_options().supported_architectures {
-            info!("Downloading artifacts zip for {} architecture...", bitness);
-            let artifacts_zip_path = working_dir.path().join(format!("Wayk_{}.zip", bitness));
-            download_latest_zip(&artifacts_zip_path, *bitness).with_context(|| {
-                format!(
-                    "Failed to download WaykNow executable for {} architecture",
-                    bitness
-                )
-            })?;
-            bundle.add_bundle_package(
-                BundlePackageType::WaykBinaries { bitness: *bitness },
-                &artifacts_zip_path,
-            );
-
-        if options.install_options().embed_msi.unwrap_or(true) {
+            if options.install_options().embed_msi.unwrap_or(true) {
                 info!("Downloading msi installer for {} architecture...", bitness);
                 let msi_path = working_dir
                     .path()
