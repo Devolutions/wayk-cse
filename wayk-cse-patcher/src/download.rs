@@ -1,14 +1,13 @@
-use std::{
-    env, fs, io,
-    path::{Path, PathBuf},
-};
+use std::{env, fs, io, path::Path};
 
 use log::info;
 use regex::Regex;
 use thiserror::Error;
 use url::Url;
 
-use crate::{bundle::Bitness, fs_util::remove_file_after_reboot, version::NowVersion};
+#[cfg(windows)]
+use crate::fs_util::remove_file_after_reboot;
+use crate::{bundle::Bitness, version::NowVersion};
 
 const VERSION_URL: &str = "https://devolutions.net/products.htm";
 const LOCAL_ARTIFACTS_ENV_VAR: &str = "CSE_LOCAL_ARTIFACTS";
@@ -53,27 +52,32 @@ fn construct_zip_url(bitness: Bitness, version: NowVersion) -> DownloadResult<Ur
     ))?)
 }
 
-fn download_artifact(destination: PathBuf, url: &Url) -> DownloadResult<PathBuf> {
+fn download_artifact(destination: &Path, url: &Url) -> DownloadResult<()> {
     let client = reqwest::blocking::Client::builder()
         .user_agent(get_agent())
         .build()?;
     let mut response = client.get(url.as_str()).send()?;
-    let mut out = fs::File::create(destination.as_path())?;
+    let mut out = fs::File::create(destination)?;
     io::copy(&mut response, &mut out)?;
 
-    Ok(remove_file_after_reboot(destination)?)
+    #[cfg(windows)]
+    {
+        remove_file_after_reboot(destination)?
+    }
+
+    Ok(())
 }
 
-pub fn download_latest_zip(destination: PathBuf, bitness: Bitness) -> DownloadResult<PathBuf> {
+pub fn download_latest_zip(destination: &Path, bitness: Bitness) -> DownloadResult<()> {
     if let Ok(local_artifacts_path) = env::var(LOCAL_ARTIFACTS_ENV_VAR) {
         let artifact_name = format!("WaykNow_{}.zip", bitness);
-        let source = PathBuf::from(&local_artifacts_path).join(artifact_name);
-        std::fs::copy(&source, destination.as_path())?;
+        let source = Path::new(&local_artifacts_path).join(artifact_name);
+        std::fs::copy(&source, destination)?;
         info!(
             "Using local artifacts storage for msi download ({})",
             source.display()
         );
-        return Ok(destination);
+        return Ok(());
     }
 
     let version = get_remote_version()?;
@@ -81,16 +85,16 @@ pub fn download_latest_zip(destination: PathBuf, bitness: Bitness) -> DownloadRe
     download_artifact(destination, &url)
 }
 
-pub fn download_latest_msi(destination: PathBuf, bitness: Bitness) -> DownloadResult<PathBuf> {
+pub fn download_latest_msi(destination: &Path, bitness: Bitness) -> DownloadResult<()> {
     if let Ok(local_artifacts_path) = env::var(LOCAL_ARTIFACTS_ENV_VAR) {
         let artifact_name = format!("WaykNow_{}.msi", bitness);
         let source = Path::new(&local_artifacts_path).join(artifact_name);
-        std::fs::copy(&source, destination.as_path())?;
+        std::fs::copy(&source, destination)?;
         info!(
             "Using local artifacts storage for msi download ({})",
             source.display()
         );
-        return Ok(destination);
+        return Ok(());
     }
 
     let version = get_remote_version()?;
@@ -143,12 +147,12 @@ mod tests {
     #[test]
     #[ignore]
     fn test_download() {
-        download_latest_msi(PathBuf::from("D:\\wn.msi"), Bitness::X64).unwrap();
+        download_latest_msi(Path::new("D:\\wn.msi"), Bitness::X64).unwrap();
     }
 
     #[test]
     #[ignore]
     fn test_download_zip() {
-        download_latest_zip(PathBuf::from("D:\\wn.zip"), Bitness::X86).unwrap();
+        download_latest_zip(Path::new("D:\\wn.zip"), Bitness::X86).unwrap();
     }
 }

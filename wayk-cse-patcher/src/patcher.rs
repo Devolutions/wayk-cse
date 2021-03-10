@@ -15,6 +15,10 @@ use crate::{
     signing::sign_executable,
 };
 
+const ORIGIN_ARG_NAME: &str = "ORIGIN";
+const OUTPUT_ARG_NAME: &str = "OUTPUT";
+const CONFIG_ARG_NAME: &str = "CONFIG";
+
 pub struct WaykCsePatcher;
 
 impl WaykCsePatcher {
@@ -30,9 +34,9 @@ impl WaykCsePatcher {
             working_dir.path().display()
         );
 
-        let original_path = Path::new(args.value_of("ORIGIN").unwrap());
-        let output_path = Path::new(args.value_of("OUTPUT").unwrap());
-        let config_path = Path::new(args.value_of("CONFIG").unwrap());
+        let original_path = Path::new(args.value_of(ORIGIN_ARG_NAME).unwrap());
+        let output_path = Path::new(args.value_of(OUTPUT_ARG_NAME).unwrap());
+        let config_path = Path::new(args.value_of(CONFIG_ARG_NAME).unwrap());
 
         let options = CseOptions::load(config_path)?;
 
@@ -52,13 +56,12 @@ impl WaykCsePatcher {
         for bitness in &options.install_options().supported_architectures {
             info!("Downloading artifacts zip for {} architecture...", bitness);
             let artifacts_zip_path = working_dir.path().join(format!("Wayk_{}.zip", bitness));
-            let artifacts_zip_path = download_latest_zip(artifacts_zip_path, *bitness)
-                .with_context(|| {
-                    format!(
-                        "Failed to download WaykNow executable for {} architecture",
-                        bitness
-                    )
-                })?;
+            download_latest_zip(artifacts_zip_path.as_path(), *bitness).with_context(|| {
+                format!(
+                    "Failed to download WaykNow executable for {} architecture",
+                    bitness
+                )
+            })?;
             bundle.add_bundle_package(
                 BundlePackageType::WaykBinaries { bitness: *bitness },
                 &artifacts_zip_path,
@@ -69,7 +72,7 @@ impl WaykCsePatcher {
                 let msi_path = working_dir
                     .path()
                     .join(format!("Installer_{}.msi", bitness));
-                let msi_path = download_latest_msi(msi_path, *bitness).with_context(|| {
+                download_latest_msi(msi_path.as_path(), *bitness).with_context(|| {
                     format!("Failed to download MSI for {} architecture", bitness)
                 })?;
                 bundle.add_bundle_package(
@@ -149,14 +152,14 @@ impl WaykCsePatcher {
             .version(env!("CARGO_PKG_VERSION"))
             .author(env!("CARGO_PKG_AUTHORS"))
             .arg(
-                Arg::with_name("ORIGIN")
+                Arg::with_name(ORIGIN_ARG_NAME)
                     .long("origin")
                     .help("Set the WaykCSE path")
                     .takes_value(true)
                     .required(true),
             )
             .arg(
-                Arg::with_name("OUTPUT")
+                Arg::with_name(OUTPUT_ARG_NAME)
                     .short("o")
                     .long("output")
                     .help("Set output file for the patcher")
@@ -164,7 +167,7 @@ impl WaykCsePatcher {
                     .required(true),
             )
             .arg(
-                Arg::with_name("CONFIG")
+                Arg::with_name(CONFIG_ARG_NAME)
                     .short("-c")
                     .long("config")
                     .help("Set CSE configuration JSON file")

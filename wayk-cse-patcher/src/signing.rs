@@ -16,7 +16,7 @@ pub enum Error {
 
 pub type SigningResult<T> = Result<T, Error>;
 
-#[cfg(not(unix))]
+#[cfg(windows)]
 pub fn sign_executable(executable_path: &Path, cert_name: &str) -> SigningResult<()> {
     let signtool_path = get_signtool_path()?;
 
@@ -44,7 +44,7 @@ pub fn sign_executable(executable_path: &Path, cert_name: &str) -> SigningResult
     Ok(())
 }
 
-#[cfg(not(unix))]
+#[cfg(windows)]
 pub fn make_signtool_args(file_path: &Path, cert_name: &str) -> Vec<String> {
     let mut args: Vec<String> = Vec::new();
 
@@ -62,7 +62,7 @@ pub fn make_signtool_args(file_path: &Path, cert_name: &str) -> Vec<String> {
     args
 }
 
-#[cfg(not(unix))]
+#[cfg(windows)]
 pub fn get_signtool_path() -> SigningResult<PathBuf> {
     which::which("signtool").map_err(|_| Error::SigntoolNotFound)
 }

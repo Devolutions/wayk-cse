@@ -31,10 +31,8 @@ fn patch(binary_path: &Path) -> NamedTempFile {
 
 #[test]
 fn patching_test() {
-    let original = File::open(WAYK_CSE_DUMMY_PATH).unwrap();
-
     let binary_path = copy_test_binary();
     let patched_file = patch(&binary_path);
 
-    assert!(patched_file.as_file().metadata().unwrap().len() > original.metadata().unwrap().len());
+    assert_eq!(patched_file.as_file().metadata().unwrap().len(), 104448);
 }
