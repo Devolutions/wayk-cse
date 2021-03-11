@@ -80,6 +80,7 @@ mod tests {
     use tempfile::Builder as TempFileBuilder;
 
     // UT requires real cert in certificate store, so it is normally ignored
+    #[cfg(not(unix))]
     #[test]
     #[ignore]
     fn signing_succeeds() {
